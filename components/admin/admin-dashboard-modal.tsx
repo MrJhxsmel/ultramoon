@@ -2,7 +2,20 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Shield, ToggleLeft, ToggleRight, Key, Plus, Copy, Check, Search, Sparkles } from "lucide-react";
+import {
+  X,
+  Shield,
+  ToggleLeft,
+  ToggleRight,
+  Key,
+  Plus,
+  Copy,
+  Check,
+  Search,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface FeatureFlag {
@@ -20,20 +33,27 @@ interface SubKey {
   created_at: string;
 }
 
+interface AdminDashboardModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  user: any;
+  onFeatureToggled?: (featureId: string, isPremium: boolean) => void;
+}
+
 export function AdminDashboardModal({
   isOpen,
   onClose,
   user,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  user: any;
-}) {
+  onFeatureToggled,
+}: AdminDashboardModalProps) {
   const [features, setFeatures] = useState<FeatureFlag[]>([]);
   const [keys, setKeys] = useState<SubKey[]>([]);
   const [searchFeature, setSearchFeature] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Notificación flotante de confirmación inmediata
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -60,8 +80,30 @@ export function AdminDashboardModal({
 
   const toggleFeature = async (id: string, currentVal: boolean) => {
     const newVal = !currentVal;
-    setFeatures(features.map((f) => (f.id === id ? { ...f, is_premium: newVal } : f)));
-    await supabase.from("feature_flags").update({ is_premium: newVal }).eq("id", id);
+
+    // 1. Actualización visual instantánea en el panel
+    setFeatures((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, is_premium: newVal } : f))
+    );
+
+    // 2. Transmitir el cambio a la página principal al instante
+    onFeatureToggled?.(id, newVal);
+
+    // 3. Notificación flotante
+    const updatedFeature = features.find((f) => f.id === id);
+    const title = updatedFeature?.title || "Módulo";
+    setToastMessage(`«${title}» ahora es ${newVal ? "VIP EXCLUSIVO" : "ACCESO LIBRE"}`);
+    setTimeout(() => setToastMessage(null), 3000);
+
+    // 4. Guardar en Supabase
+    const { error } = await supabase
+      .from("feature_flags")
+      .update({ is_premium: newVal, updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) {
+      setToastMessage("Error al guardar en Supabase. Revisa tu conexión.");
+    }
   };
 
   const handleGenerateKey = async () => {
@@ -78,18 +120,25 @@ export function AdminDashboardModal({
 
     if (data && !error) {
       setKeys([data[0], ...keys]);
+      setToastMessage(`Nueva Key generada: ${randomCode}`);
+      setTimeout(() => setToastMessage(null), 3000);
     }
   };
 
   const copyKey = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedKey(code);
-    setTimeout(() => setCopiedKey(null), 1500);
+    setToastMessage("Key copiada al portapapeles");
+    setTimeout(() => {
+      setCopiedKey(null);
+      setToastMessage(null);
+    }, 2000);
   };
 
-  const filteredFeatures = features.filter((f) =>
-    f.title.toLowerCase().includes(searchFeature.toLowerCase()) ||
-    f.description.toLowerCase().includes(searchFeature.toLowerCase())
+  const filteredFeatures = features.filter(
+    (f) =>
+      f.title.toLowerCase().includes(searchFeature.toLowerCase()) ||
+      f.description.toLowerCase().includes(searchFeature.toLowerCase())
   );
 
   return (
@@ -133,6 +182,26 @@ export function AdminDashboardModal({
             </button>
           </div>
 
+          {/* Toast / Notificación Flotante Inmediata */}
+          <AnimatePresence>
+            {toastMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mx-5 mt-4 p-3 rounded-2xl bg-purple-500/20 border border-purple-500/40 text-purple-200 text-xs flex items-center justify-between shadow-lg"
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span className="font-bold">{toastMessage}</span>
+                </div>
+                <span className="text-[10px] text-purple-300 font-mono uppercase bg-purple-500/30 px-2 py-0.5 rounded-full">
+                  Sincronizado
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="p-5 sm:p-6 overflow-y-auto space-y-6 custom-scrollbar">
             {/* SECCIÓN 1: SWITCHES DE TODAS LAS FUNCIONES */}
             <div className="space-y-3">
@@ -141,7 +210,7 @@ export function AdminDashboardModal({
                   <h4 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2">
                     <span>Switches de Funciones ({features.length} Disponibles)</span>
                     <span className="text-[10px] text-zinc-400 lowercase font-mono">
-                      (en vivo sin recompilar)
+                      (en vivo sin recargar)
                     </span>
                   </h4>
                   <p className="text-[11px] text-zinc-400">

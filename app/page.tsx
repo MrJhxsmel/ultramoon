@@ -29,6 +29,8 @@ import {
   Cloud,
   Crown,
   Shield,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
@@ -151,6 +153,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "damage-calc",
+    flagKey: "damage_calc",
     title: "Calculadora de Daño",
     category: "competitive",
     badge: "BREAKPOINTS",
@@ -161,6 +164,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "speed-tiers",
+    flagKey: "speed_tiers",
     title: "Speed Tiers & Duelo 1v1",
     category: "competitive",
     badge: "SPEED TIERS",
@@ -195,6 +199,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "weather-terrains",
+    flagKey: "weather_terrains",
     title: "Climas & Terrenos",
     category: "minecraft",
     badge: "MINECRAFT",
@@ -205,6 +210,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "mounts",
+    flagKey: "mounts_guide",
     title: "Monturas & Habilidades",
     category: "minecraft",
     badge: "SUPERVIVENCIA",
@@ -215,6 +221,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "catch-calc",
+    flagKey: "catch_calc",
     title: "Calculadora de Captura",
     category: "minecraft",
     badge: "CONTEXTUAL",
@@ -225,6 +232,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "server-commands",
+    flagKey: "server_commands",
     title: "Comandos de Servidor",
     category: "minecraft",
     badge: "ADMIN & GIVE",
@@ -235,6 +243,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "exp-calc",
+    flagKey: "exp_calc",
     title: "Calculadora de EXP",
     category: "breeding",
     badge: "LEVEL UP",
@@ -256,6 +265,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "habitats",
+    flagKey: "habitats_guide",
     title: "Buscador de Hábitats & Drops",
     category: "minecraft",
     badge: "SPAWNS & DROPS",
@@ -266,6 +276,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "evolutions",
+    flagKey: "evolutions_guide",
     title: "Evoluciones & Amistad",
     category: "breeding",
     badge: "220 AMISTAD",
@@ -276,6 +287,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "apricorns",
+    flagKey: "apricorns_guide",
     title: "Apricorns & Bayas",
     category: "breeding",
     badge: "CRAFTEO",
@@ -297,10 +309,13 @@ export default function Home() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
-  // Estados de Usuario y Perfil
+  // Estados de Usuario, Perfil y Feature Flags
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
+
+  // Modo Simulador de Usuario Gratis (para que pruebes cómo lo ve un visitante normal)
+  const [simulateFreeUser, setSimulateFreeUser] = useState(false);
 
   // Temas
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
@@ -377,12 +392,26 @@ export default function Home() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user ?? null;
       setCurrentUser(user);
-      if (user) {
-        loadUserProfile(user.id);
-      } else {
-        setUserProfile(null);
-      }
+      if (user) loadUserProfile(user.id);
+      else setUserProfile(null);
     });
+
+    // Suscripción Realtime en Supabase para cambios de switches
+    const channel = supabase
+      .channel("public:feature_flags")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "feature_flags" },
+        (payload: any) => {
+          if (payload.new && payload.new.id) {
+            setFeatureFlags((prev) => ({
+              ...prev,
+              [payload.new.id]: payload.new.is_premium,
+            }));
+          }
+        }
+      )
+      .subscribe();
 
     const handleClickOutside = (e: MouseEvent) => {
       if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
@@ -414,6 +443,7 @@ export default function Home() {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
       authListener?.subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -467,12 +497,19 @@ export default function Home() {
     setUserProfile(null);
   };
 
-  const isVipUser = userProfile?.subscription_status === "vip" || userProfile?.role === "admin";
+  // Cálculo de si el usuario es VIP o Administrador (sujeto a modo simulador)
+  const isVipUser = useMemo(() => {
+    if (simulateFreeUser) return false;
+    if (userProfile?.role === "admin") return true;
+    if (userProfile?.subscription_status === "vip") return true;
+    return false;
+  }, [userProfile, simulateFreeUser]);
 
+  // Comprobar si un módulo específico está bloqueado
   const isModuleLocked = (module: ToolModule) => {
     if (!module.flagKey) return false;
-    const isFlagPremium = Boolean(featureFlags[module.flagKey]);
-    if (!isFlagPremium) return false;
+    const isPremium = Boolean(featureFlags[module.flagKey]);
+    if (!isPremium) return false;
     return !isVipUser;
   };
 
@@ -576,16 +613,35 @@ export default function Home() {
               <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 font-mono">⌘K</kbd>
             </button>
 
-            {/* BOTÓN ADMIN PANEL EXCLUSIVO (Solo para ti) */}
+            {/* BOTÓN ADMIN PANEL (Exclusivo para tu cuenta) */}
             {userProfile?.role === "admin" && (
-              <button
-                onClick={() => setIsAdminModalOpen(true)}
-                className="px-3 py-1.5 rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-black flex items-center gap-1.5 transition shadow-md shadow-purple-600/20"
-                title="Abrir Dashboard de Administrador"
-              >
-                <Shield className="w-3.5 h-3.5 text-purple-400" />
-                <span className="hidden sm:inline">Panel Owner</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setIsAdminModalOpen(true)}
+                  className="px-3 py-1.5 rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-black flex items-center gap-1.5 transition shadow-md shadow-purple-600/20"
+                  title="Abrir Dashboard de Administrador"
+                >
+                  <Shield className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="hidden sm:inline">Panel Owner</span>
+                </button>
+
+                {/* Switch para simular vista de usuario Gratis */}
+                <button
+                  onClick={() => setSimulateFreeUser(!simulateFreeUser)}
+                  className={`p-1.5 rounded-2xl border transition ${
+                    simulateFreeUser
+                      ? "bg-amber-400 text-black border-amber-300 font-bold"
+                      : "bg-zinc-800/80 border-white/10 text-zinc-400 hover:text-white"
+                  }`}
+                  title={
+                    simulateFreeUser
+                      ? "Modo Invitado activo (viendo la web como usuario gratis)"
+                      : "Ver la web como usuario gratis (para probar los candados)"
+                  }
+                >
+                  {simulateFreeUser ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
             )}
 
             {/* BOTÓN MEMBRESÍA VIP YAPE */}
@@ -1052,6 +1108,12 @@ export default function Home() {
         isOpen={isAdminModalOpen}
         onClose={() => setIsAdminModalOpen(false)}
         user={currentUser}
+        onFeatureToggled={(featId, isPremium) => {
+          setFeatureFlags((prev) => ({
+            ...prev,
+            [featId]: isPremium,
+          }));
+        }}
       />
 
       <ExportCommandsModal
