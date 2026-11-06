@@ -435,75 +435,224 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   };
 
   // Generador de Tarjeta de Equipo PNG nativo con Canvas
-  const handleDownloadTeamCard = () => {
+  // Colores elementales oficiales para los badges del Canvas
+  const TYPE_CANVAS_COLORS: Record<string, string> = {
+    Normal: "#94a3b8", Fire: "#f97316", Water: "#38bdf8", Grass: "#22c55e",
+    Electric: "#facc15", Ice: "#67e8f9", Fighting: "#ef4444", Poison: "#a855f7",
+    Ground: "#ca8a04", Flying: "#818cf8", Psychic: "#ec4899", Bug: "#84cc16",
+    Rock: "#a16207", Ghost: "#7e22ce", Dragon: "#6366f1", Steel: "#64748b",
+    Dark: "#475569", Fairy: "#f472b6",
+  };
+
+  const handleDownloadTeamCard = async () => {
     if (!activeTeam || activeTeam.pokemonList.length === 0) return;
 
     const canvas = document.createElement("canvas");
-    canvas.width = 1200;
-    canvas.height = 630;
+    canvas.width = 1280;
+    canvas.height = 720;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Fondo Cyber Dark
-    ctx.fillStyle = "#090b10";
+    // 1. Fondo Oscuro Profundo
+    ctx.fillStyle = "#07090e";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Decoración
-    const grad = ctx.createLinearGradient(0, 0, 1200, 630);
-    grad.addColorStop(0, "rgba(147, 51, 234, 0.2)");
-    grad.addColorStop(1, "rgba(6, 182, 212, 0.1)");
-    ctx.fillStyle = grad;
+    // 2. Resplandores ambientales cyberpunk (Gradients)
+    const glow1 = ctx.createRadialGradient(200, 100, 10, 200, 100, 450);
+    glow1.addColorStop(0, "rgba(168, 85, 247, 0.25)");
+    glow1.addColorStop(1, "rgba(7, 9, 14, 0)");
+    ctx.fillStyle = glow1;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Título
+    const glow2 = ctx.createRadialGradient(1080, 600, 10, 1080, 600, 500);
+    glow2.addColorStop(0, "rgba(56, 189, 248, 0.2)");
+    glow2.addColorStop(1, "rgba(7, 9, 14, 0)");
+    ctx.fillStyle = glow2;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 3. Encabezado Branding
+    // Insignia Superior
+    ctx.fillStyle = "rgba(168, 85, 247, 0.15)";
+    ctx.strokeStyle = "rgba(168, 85, 247, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(50, 36, 150, 24, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#c084fc";
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillText("COBBLEMON GEN 9", 64, 52);
+
+    // Título Principal
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 34px sans-serif";
-    ctx.fillText(`Ultramoon Cobblemon | ${activeTeam.name}`, 50, 65);
+    ctx.font = "900 32px sans-serif";
+    ctx.fillText(activeTeam.name, 50, 92);
 
-    ctx.fillStyle = "#9ca3af";
-    ctx.font = "16px sans-serif";
-    ctx.fillText("Composición Competitiva VGC / Cobblemon Gen 9", 50, 95);
+    // Subtítulo
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "500 14px sans-serif";
+    ctx.fillText("Ultramoon Competitive Suite • Formato 6v6 VGC / Cobblemon", 50, 114);
 
-    // Tarjetas de los 6 Pokémon
-    activeTeam.pokemonList.forEach((member, i) => {
+    // Función auxiliar para cargar imágenes en Canvas con CORS
+    const loadImage = (url: string): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Failed to load ${url}`));
+        img.src = url;
+      });
+    };
+
+    // 4. Renderizar la cuadrícula de los 6 slots
+    for (let i = 0; i < 6; i++) {
       const col = i % 3;
       const row = Math.floor(i / 3);
-      const x = 50 + col * 370;
-      const y = 130 + row * 225;
+      const x = 50 + col * 393;
+      const y = 145 + row * 255;
+      const cardW = 373;
+      const cardH = 240;
 
-      // Caja individual
-      ctx.fillStyle = "#12151f";
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-      ctx.lineWidth = 2;
+      const member = activeTeam.pokemonList[i];
+
+      if (!member) {
+        // Slot Vacío con marco discontinuo
+        ctx.save();
+        ctx.setLineDash([6, 6]);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.01)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(x, y, cardW, cardH, 20);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#475569";
+        ctx.font = "600 13px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`Slot #${i + 1} Vacío`, x + cardW / 2, y + cardH / 2);
+        ctx.restore();
+        continue;
+      }
+
+      // Tarjeta de Pokémon Activo (Glassmorphism card)
+      ctx.fillStyle = "#0f131d";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.roundRect(x, y, 350, 205, 16);
+      ctx.roundRect(x, y, cardW, cardH, 20);
       ctx.fill();
       ctx.stroke();
 
-      // Textos
+      // Recuadro interior de Sprite
+      ctx.fillStyle = "#0a0c14";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      ctx.beginPath();
+      ctx.roundRect(x + 16, y + 16, 92, 92, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      // Cargar e insertar Sprite
+      try {
+        const spriteImg = await loadImage(member.sprite);
+        ctx.imageSmoothingEnabled = false; // Mantiene el estilo pixel art nítido
+        ctx.drawImage(spriteImg, x + 20, y + 20, 84, 84);
+      } catch (err) {
+        // Fallback gráfico si falla la carga externa
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 26px sans-serif";
+        ctx.fillText("✦", x + 50, y + 68);
+      }
+
+      // Nombre del Pokémon
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 20px sans-serif";
-      ctx.fillText(member.name, x + 20, y + 40);
+      ctx.font = "bold 19px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(member.name, x + 120, y + 42);
 
-      ctx.fillStyle = "#f59e0b";
-      ctx.font = "14px monospace";
-      ctx.fillText(`@${member.customItem || "Leftovers"}`, x + 20, y + 65);
+      // Objeto Equipado
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText(`@${member.customItem || "Leftovers"}`, x + 120, y + 64);
 
+      // Naturaleza y Habilidad
       ctx.fillStyle = "#a855f7";
-      ctx.font = "13px sans-serif";
-      ctx.fillText(`Nat: ${member.customNature || "Timid"}`, x + 20, y + 90);
+      ctx.font = "600 11px sans-serif";
+      ctx.fillText(
+        `Nat: ${member.customNature || "Timid"} • ${member.abilities?.primary || "Overgrow"}`,
+        x + 120,
+        y + 83
+      );
 
-      // Movimientos
-      ctx.fillStyle = "#d1d5db";
-      ctx.font = "12px monospace";
-      const moves = member.customMoves || ["Protect", "Substitute", "Tackle", "Rest"];
-      moves.forEach((m, mIdx) => {
-        ctx.fillText(`• ${m}`, x + 20, y + 120 + mIdx * 18);
+      // Badges de Tipos
+      let badgeX = x + 120;
+      (member.types || ["Normal"]).forEach((t) => {
+        const capType = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+        const typeColor = TYPE_CANVAS_COLORS[capType] || "#94a3b8";
+
+        ctx.fillStyle = typeColor + "25";
+        ctx.strokeStyle = typeColor + "60";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(badgeX, y + 92, 60, 18, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = typeColor;
+        ctx.font = "bold 9px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(capType.toUpperCase(), badgeX + 30, y + 104);
+        badgeX += 66;
       });
-    });
 
+      // Separador
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+      ctx.beginPath();
+      ctx.moveTo(x + 16, y + 124);
+      ctx.lineTo(x + cardW - 16, y + 124);
+      ctx.stroke();
+
+      // Cuadrícula 2x2 de los 4 Movimientos
+      const moves = member.customMoves || ["Protect", "Substitute", "Tackle", "Rest"];
+      ctx.textAlign = "left";
+      moves.forEach((move, mIdx) => {
+        const mCol = mIdx % 2;
+        const mRow = Math.floor(mIdx / 2);
+        const mX = x + 18 + mCol * 172;
+        const mY = y + 140 + mRow * 46;
+
+        ctx.fillStyle = "#161b26";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+        ctx.beginPath();
+        ctx.roundRect(mX, mY, 162, 38, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillText("▸", mX + 10, mY + 23);
+
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "600 12px sans-serif";
+        const trimmedMove = move.length > 17 ? move.slice(0, 16) + "…" : move;
+        ctx.fillText(trimmedMove, mX + 26, mY + 23);
+      });
+    }
+
+    // 5. Pie de Tarjeta / Watermark
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#64748b";
+    ctx.font = "500 12px sans-serif";
+    ctx.fillText("Generado con Ultramoon • Cobblemon Minecraft Competitive Suite", 50, 685);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#a855f7";
+    ctx.font = "bold 12px monospace";
+    ctx.fillText(window.location.host || "ultramoon.vercel.app", 1230, 685);
+
+    // Descarga automática en PNG
     const link = document.createElement("a");
-    link.download = `${activeTeam.name.toLowerCase().replace(/\s+/g, "-")}-team.png`;
+    link.download = `${activeTeam.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}-ultramoon.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
   };
