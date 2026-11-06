@@ -314,7 +314,7 @@ export default function Home() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
 
-  // Modo Simulador de Usuario Gratis (para que pruebes cómo lo ve un visitante normal)
+  // Modo Simulador de Usuario Gratis para pruebas
   const [simulateFreeUser, setSimulateFreeUser] = useState(false);
 
   // Temas
@@ -396,7 +396,7 @@ export default function Home() {
       else setUserProfile(null);
     });
 
-    // Suscripción Realtime en Supabase para cambios de switches
+    // Suscripción en tiempo real a cambios de feature flags
     const channel = supabase
       .channel("public:feature_flags")
       .on(
@@ -497,7 +497,6 @@ export default function Home() {
     setUserProfile(null);
   };
 
-  // Cálculo de si el usuario es VIP o Administrador (sujeto a modo simulador)
   const isVipUser = useMemo(() => {
     if (simulateFreeUser) return false;
     if (userProfile?.role === "admin") return true;
@@ -505,7 +504,6 @@ export default function Home() {
     return false;
   }, [userProfile, simulateFreeUser]);
 
-  // Comprobar si un módulo específico está bloqueado
   const isModuleLocked = (module: ToolModule) => {
     if (!module.flagKey) return false;
     const isPremium = Boolean(featureFlags[module.flagKey]);
@@ -570,65 +568,71 @@ export default function Home() {
         }}
       />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-        {/* Cabecera Principal */}
-        <header className={`flex items-center justify-between p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl border transition-all duration-300 relative z-30 ${
-          isLight ? "bg-white/80 border-slate-200/80 shadow-lg shadow-slate-200/50" : "bg-zinc-950/60 border-white/10 shadow-2xl shadow-black/40"
-        }`}>
-          <div className="flex items-center gap-3.5">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8">
+        {/* Cabecera Principal Optimizada para Móvil y Desktop */}
+        <header
+          className={`flex items-center justify-between p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl backdrop-blur-2xl border transition-all duration-300 relative z-30 gap-1.5 sm:gap-3 ${
+            isLight
+              ? "bg-white/80 border-slate-200/80 shadow-lg shadow-slate-200/50"
+              : "bg-zinc-950/70 border-white/10 shadow-2xl shadow-black/40"
+          }`}
+        >
+          {/* Logo y Nombre */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <motion.div
               whileHover={{ rotate: 15, scale: 1.05 }}
-              className={`flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-tr ${currentThemeConfig.accent} text-white font-black text-xl shadow-lg shadow-purple-500/25`}
+              className={`flex items-center justify-center w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-tr ${currentThemeConfig.accent} text-white font-black text-sm sm:text-xl shadow-lg shadow-purple-500/25 shrink-0`}
             >
               ✦
             </motion.div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-black tracking-tight">Ultramoon</h1>
-                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${
-                  isLight ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-purple-500/20 text-purple-300 border-purple-500/30"
-                }`}>
-                  Cobblemon Suite
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm sm:text-xl font-black tracking-tight leading-none">
+                  Ultramoon
+                </h1>
+                <span className="text-[9px] font-mono opacity-50 hidden md:inline">
+                  {CURRENT_VERSION}
                 </span>
-                <span className="text-[10px] font-mono opacity-60 hidden sm:inline">{CURRENT_VERSION}</span>
               </div>
-              <p className="text-xs opacity-60 hidden sm:block">
-                Suite analítica competitiva, monturas, climas y membresías para Cobblemon
+              <p className="text-[10px] text-zinc-400 hidden lg:block">
+                Cobblemon Competitive Suite
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Buscador Rápido */}
+          {/* Acciones y Botones a la derecha */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
+            {/* Buscador */}
             <button
               onClick={() => setIsSearchOpen(true)}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border text-xs font-semibold transition ${
+              className={`p-2 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-2xl border text-xs font-semibold transition flex items-center gap-1.5 ${
                 isLight
                   ? "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700"
                   : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300 hover:text-white"
               }`}
+              title="Buscar Pokémon (⌘K)"
             >
-              <Search className="w-3.5 h-3.5 opacity-60" />
-              <span className="hidden sm:inline">Buscar Pokémon</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 font-mono">⌘K</kbd>
+              <Search className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Buscar</span>
+              <kbd className="px-1.5 py-0.5 text-[9px] rounded bg-white/10 font-mono hidden md:inline">
+                ⌘K
+              </kbd>
             </button>
 
-            {/* BOTÓN ADMIN PANEL (Exclusivo para tu cuenta) */}
+            {/* BOTÓN ADMIN PANEL */}
             {userProfile?.role === "admin" && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => setIsAdminModalOpen(true)}
-                  className="px-3 py-1.5 rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-black flex items-center gap-1.5 transition shadow-md shadow-purple-600/20"
+                  className="p-2 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-black flex items-center gap-1 transition shrink-0"
                   title="Abrir Dashboard de Administrador"
                 >
                   <Shield className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="hidden sm:inline">Panel Owner</span>
+                  <span className="hidden sm:inline">Owner</span>
                 </button>
-
-                {/* Switch para simular vista de usuario Gratis */}
                 <button
                   onClick={() => setSimulateFreeUser(!simulateFreeUser)}
-                  className={`p-1.5 rounded-2xl border transition ${
+                  className={`p-1.5 rounded-xl sm:rounded-2xl border transition ${
                     simulateFreeUser
                       ? "bg-amber-400 text-black border-amber-300 font-bold"
                       : "bg-zinc-800/80 border-white/10 text-zinc-400 hover:text-white"
@@ -636,35 +640,39 @@ export default function Home() {
                   title={
                     simulateFreeUser
                       ? "Modo Invitado activo (viendo la web como usuario gratis)"
-                      : "Ver la web como usuario gratis (para probar los candados)"
+                      : "Ver la web como usuario gratis"
                   }
                 >
-                  {simulateFreeUser ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {simulateFreeUser ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                 </button>
               </div>
             )}
 
-            {/* BOTÓN MEMBRESÍA VIP YAPE */}
+            {/* BOTÓN MEMBRESÍA VIP */}
             <button
               onClick={() => setIsSubModalOpen(true)}
-              className={`px-3 py-1.5 rounded-2xl border text-xs font-black flex items-center gap-1.5 transition ${
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border text-xs font-black flex items-center gap-1 transition shrink-0 ${
                 isVipUser
                   ? "bg-amber-400/20 border-amber-400/40 text-amber-300 shadow-md shadow-amber-400/20"
                   : "bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/30 text-amber-300"
               }`}
-              title="Ver suscripciones y pagar con Yape"
+              title="Membresía VIP"
             >
-              <Crown className="w-3.5 h-3.5 text-amber-400" />
-              <span>{isVipUser ? "VIP Activo" : "VIP Yape"}</span>
+              <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-[11px] font-bold">
+                {isVipUser ? "VIP" : "VIP"}
+              </span>
             </button>
 
-            {/* Botón de Autenticación / Perfil */}
+            {/* BOTÓN LOGIN / PERFIL (Siempre visible) */}
             {currentUser ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => setIsProfileOpen(true)}
-                  className={`px-3 py-1.5 rounded-2xl border flex items-center gap-2 text-xs font-semibold transition hover:scale-[1.02] ${
-                    isLight ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-purple-500/10 border-purple-500/30 text-purple-300"
+                  className={`p-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border flex items-center gap-1.5 text-xs font-semibold transition ${
+                    isLight
+                      ? "bg-purple-50 border-purple-200 text-purple-700"
+                      : "bg-purple-500/15 border-purple-500/30 text-purple-300"
                   }`}
                   title="Ficha y Ajustes de Perfil"
                 >
@@ -672,56 +680,56 @@ export default function Home() {
                     <img
                       src={mcSkinAvatar}
                       alt="Skin avatar"
-                      className="w-4 h-4 rounded-md object-contain"
+                      className="w-4 h-4 rounded-md object-contain shrink-0"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
                   ) : (
-                    <User className="w-3.5 h-3.5" />
+                    <User className="w-3.5 h-3.5 shrink-0" />
                   )}
-                  <span className="max-w-[110px] truncate hidden sm:inline">{displayName}</span>
-                  <span className="px-1.5 py-0.2 text-[9px] bg-purple-500/30 text-purple-200 rounded font-bold">
-                    PASAPORTE
+                  <span className="max-w-[80px] sm:max-w-[110px] truncate hidden sm:inline text-xs">
+                    {displayName}
                   </span>
                 </button>
                 <button
                   onClick={handleLogout}
-                  className={`p-2 rounded-2xl border transition ${
-                    isLight ? "bg-slate-100 hover:bg-rose-50 border-slate-200 text-slate-600 hover:text-rose-600" : "bg-white/5 hover:bg-rose-500/20 border-white/10 text-zinc-400 hover:text-rose-400"
+                  className={`p-2 rounded-xl sm:rounded-2xl border transition ${
+                    isLight
+                      ? "bg-slate-100 hover:bg-rose-50 border-slate-200 text-slate-600 hover:text-rose-600"
+                      : "bg-white/5 hover:bg-rose-500/20 border-white/10 text-zinc-400 hover:text-rose-400"
                   }`}
                   title="Cerrar Sesión"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className={`px-3.5 py-1.5 rounded-2xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl sm:rounded-2xl border text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
                   isLight
-                    ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600 shadow-md shadow-purple-200"
-                    : "bg-purple-600/30 hover:bg-purple-600/50 border-purple-500/40 text-purple-200"
+                    ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
+                    : "bg-purple-600 hover:bg-purple-500 text-white border-purple-500/50 shadow-md shadow-purple-600/30"
                 }`}
               >
                 <User className="w-3.5 h-3.5" />
-                <span>Iniciar Sesión</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-400/20 text-amber-300 border border-amber-400/40">
-                  DESBLOQUEAR
-                </span>
+                <span>Entrar</span>
               </button>
             )}
 
             {/* Selector de Temas */}
-            <div className="relative" ref={themeRef}>
+            <div className="relative hidden xs:block sm:block" ref={themeRef}>
               <button
                 onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
-                className={`p-2 rounded-2xl border transition ${
-                  isLight ? "bg-slate-100 hover:bg-slate-200 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300"
+                className={`p-2 rounded-xl sm:rounded-2xl border transition ${
+                  isLight
+                    ? "bg-slate-100 hover:bg-slate-200 border-slate-200"
+                    : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300"
                 }`}
                 title="Cambiar apariencia"
               >
-                <Palette className="w-4 h-4" />
+                <Palette className="w-3.5 h-3.5" />
               </button>
 
               <AnimatePresence>
@@ -730,13 +738,12 @@ export default function Home() {
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 6 }}
-                    className={`absolute right-0 top-full mt-2 w-52 p-2 rounded-2xl border shadow-2xl z-50 space-y-1 backdrop-blur-2xl ${
-                      isLight ? "bg-white/95 border-slate-200 text-slate-800" : "bg-zinc-950/95 border-white/10 text-zinc-200"
+                    className={`absolute right-0 top-full mt-2 w-48 p-2 rounded-2xl border shadow-2xl z-50 space-y-1 backdrop-blur-2xl ${
+                      isLight
+                        ? "bg-white/95 border-slate-200 text-slate-800"
+                        : "bg-zinc-950/95 border-white/10 text-zinc-200"
                     }`}
                   >
-                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-60 px-2 block py-1">
-                      Temas de Interfaz:
-                    </span>
                     {(Object.keys(THEMES) as ThemeMode[]).map((thm) => (
                       <button
                         key={thm}
@@ -744,7 +751,9 @@ export default function Home() {
                         className={`w-full px-3 py-1.5 rounded-xl text-xs font-semibold text-left transition flex items-center justify-between ${
                           currentTheme === thm
                             ? "bg-purple-600 text-white font-bold"
-                            : isLight ? "hover:bg-slate-100" : "hover:bg-white/10"
+                            : isLight
+                            ? "hover:bg-slate-100"
+                            : "hover:bg-white/10"
                         }`}
                       >
                         <span>{THEMES[thm].name}</span>
@@ -757,18 +766,22 @@ export default function Home() {
             </div>
 
             {/* Control de Volumen */}
-            <div className="relative" ref={volumeRef}>
+            <div className="relative hidden sm:block" ref={volumeRef}>
               <button
                 onClick={() => setIsVolumePopoverOpen(!isVolumePopoverOpen)}
-                className={`p-2 rounded-2xl border transition flex items-center gap-1.5 ${
+                className={`p-2 rounded-xl sm:rounded-2xl border transition flex items-center gap-1.5 ${
                   volume > 0
-                    ? isLight ? "bg-purple-100 border-purple-300 text-purple-700" : "bg-purple-500/20 border-purple-500/40 text-purple-300"
-                    : isLight ? "bg-slate-100 border-slate-200 text-slate-400" : "bg-white/5 border-white/10 text-zinc-500"
+                    ? isLight
+                      ? "bg-purple-100 border-purple-300 text-purple-700"
+                      : "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                    : isLight
+                    ? "bg-slate-100 border-slate-200 text-slate-400"
+                    : "bg-white/5 border-white/10 text-zinc-500"
                 }`}
                 title="Ajustar volumen"
               >
-                {volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                <span className="text-[10px] font-mono font-bold hidden sm:inline">{volume}%</span>
+                {volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                <span className="text-[10px] font-mono font-bold">{volume}%</span>
               </button>
 
               <AnimatePresence>
@@ -801,33 +814,35 @@ export default function Home() {
         </header>
 
         {/* HERO BANNER */}
-        <section className={`relative overflow-hidden rounded-3xl border p-6 sm:p-10 backdrop-blur-xl transition-all duration-300 ${
-          isLight
-            ? "bg-gradient-to-br from-white via-purple-50/50 to-indigo-50/40 border-slate-200 shadow-xl"
-            : "bg-gradient-to-br from-zinc-900/90 via-purple-950/20 to-zinc-950/90 border-white/10 shadow-2xl shadow-purple-950/20"
-        }`}>
+        <section
+          className={`relative overflow-hidden rounded-3xl border p-5 sm:p-10 backdrop-blur-xl transition-all duration-300 ${
+            isLight
+              ? "bg-gradient-to-br from-white via-purple-50/50 to-indigo-50/40 border-slate-200 shadow-xl"
+              : "bg-gradient-to-br from-zinc-900/90 via-purple-950/20 to-zinc-950/90 border-white/10 shadow-2xl shadow-purple-950/20"
+          }`}
+        >
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="max-w-xl space-y-4">
+            <div className="max-w-xl space-y-3 sm:space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/15 border border-purple-500/30 text-purple-300">
                 <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-spin" style={{ animationDuration: "6s" }} />
                 <span>Cobblemon Gen 9 Meta Suite · Sincronización Cloud</span>
               </div>
 
-              <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+              <h2 className="text-2xl sm:text-5xl font-black tracking-tight leading-tight">
                 Potencia tu juego <br />
                 <span className={`bg-gradient-to-r ${currentThemeConfig.accent} bg-clip-text text-transparent`}>
                   al nivel de torneo
                 </span>
               </h2>
 
-              <p className="text-sm sm:text-base opacity-80 leading-relaxed">
+              <p className="text-xs sm:text-base opacity-80 leading-relaxed">
                 Arma alineaciones 6v6, exporta comandos <code className="text-purple-300 font-mono text-xs">/pokegive</code> para Minecraft y guarda tus metas de EVs en tu cuenta de Supabase con membresía VIP.
               </p>
 
-              <div className="flex flex-wrap items-center gap-2.5 pt-2">
+              <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-2">
                 <button
                   onClick={() => setActiveModal("team-builder")}
-                  className={`px-5 py-2.5 rounded-2xl font-bold text-xs bg-gradient-to-r ${currentThemeConfig.accent} text-white shadow-lg shadow-purple-600/30 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5`}
+                  className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs bg-gradient-to-r ${currentThemeConfig.accent} text-white shadow-lg shadow-purple-600/30 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5`}
                 >
                   <Users className="w-4 h-4" />
                   <span>Team Builder & Matchups</span>
@@ -842,7 +857,7 @@ export default function Home() {
                       setIsEvCloudModalOpen(true);
                     }
                   }}
-                  className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition flex items-center gap-2 ${
+                  className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl font-semibold text-xs border transition flex items-center gap-1.5 ${
                     isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
                   }`}
                 >
@@ -862,7 +877,7 @@ export default function Home() {
                       setIsCommandsModalOpen(true);
                     }
                   }}
-                  className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition flex items-center gap-2 ${
+                  className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl font-semibold text-xs border transition flex items-center gap-1.5 ${
                     isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
                   }`}
                 >
@@ -878,7 +893,7 @@ export default function Home() {
             {/* Especie Destacada */}
             <motion.div
               whileHover={{ y: -4 }}
-              className={`p-4 sm:p-5 rounded-3xl border flex items-center gap-4 transition shadow-xl group relative ${
+              className={`w-full md:w-auto p-4 sm:p-5 rounded-2xl sm:rounded-3xl border flex items-center gap-4 transition shadow-xl group relative ${
                 isLight ? "bg-white border-slate-200 hover:border-purple-400" : "bg-zinc-900/80 border-white/10 hover:border-purple-500/50"
               }`}
             >
@@ -887,7 +902,7 @@ export default function Home() {
                   playPokemonCry(featuredPokemon.id);
                   setIsSearchOpen(true);
                 }}
-                className="cursor-pointer"
+                className="cursor-pointer shrink-0"
               >
                 <img
                   src={isFeaturedShiny ? featuredPokemon.shinySprite : featuredPokemon.sprite}
@@ -895,7 +910,7 @@ export default function Home() {
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = featuredPokemon.fallbackSprite;
                   }}
-                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-xl group-hover:scale-110 transition duration-300"
+                  className="w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-xl group-hover:scale-110 transition duration-300"
                 />
               </div>
 
@@ -942,7 +957,7 @@ export default function Home() {
                     playPokemonCry(featuredPokemon.id);
                     setIsSearchOpen(true);
                   }}
-                  className="text-[11px] opacity-60 block pt-1 font-medium group-hover:text-purple-400 transition text-left"
+                  className="text-[10px] sm:text-[11px] opacity-60 block pt-1 font-medium group-hover:text-purple-400 transition text-left"
                 >
                   Toca para oír grito y ver ficha →
                 </button>
@@ -963,7 +978,7 @@ export default function Home() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id as any)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
                   activeCategory === cat.id
                     ? `bg-gradient-to-r ${currentThemeConfig.accent} text-white shadow-md shadow-purple-600/20`
                     : isLight
@@ -993,7 +1008,7 @@ export default function Home() {
                 whileHover={{ y: -6, scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={() => handleModuleClick(module)}
-                className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor} ${
+                className={`group relative p-5 sm:p-6 rounded-2xl sm:rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor} ${
                   locked ? "ring-1 ring-amber-500/20" : ""
                 }`}
               >
@@ -1001,11 +1016,11 @@ export default function Home() {
 
                 <div className="relative z-10 space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 relative">
-                      <Icon className="w-6 h-6 text-purple-400 group-hover:text-white transition" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 relative">
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 group-hover:text-white transition" />
                       {locked && (
-                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-400 text-black flex items-center justify-center shadow-md">
-                          <Lock className="w-3 h-3" />
+                        <div className="absolute -top-1.5 -right-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-400 text-black flex items-center justify-center shadow-md">
+                          <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                         </div>
                       )}
                     </div>
@@ -1032,7 +1047,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <h3 className="text-base font-bold tracking-tight group-hover:text-purple-300 transition-colors flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold tracking-tight group-hover:text-purple-300 transition-colors flex items-center gap-2">
                       <span>{module.title}</span>
                       {module.flagKey && (
                         <span className="text-[10px] text-purple-400 font-mono">
@@ -1046,7 +1061,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="relative z-10 mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs font-semibold opacity-60 group-hover:opacity-100 transition">
+                <div className="relative z-10 mt-5 pt-3 sm:mt-6 sm:pt-4 border-t border-white/5 flex items-center justify-between text-xs font-semibold opacity-60 group-hover:opacity-100 transition">
                   <span className={locked ? "text-amber-300" : ""}>
                     {locked ? "Desbloquear con Membresía VIP" : "Abrir simulador"}
                   </span>
@@ -1058,10 +1073,10 @@ export default function Home() {
         </section>
 
         {/* Footer */}
-        <footer className="pt-8 pb-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs opacity-60">
+        <footer className="pt-6 sm:pt-8 pb-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs opacity-60 text-center sm:text-left">
           <p>Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics · PWA Ready</p>
           <div className="flex items-center gap-3">
-            <span className="font-mono">Tema activo: {currentThemeConfig.name}</span>
+            <span className="font-mono">Tema: {currentThemeConfig.name}</span>
             <span>•</span>
             <button
               onClick={() => {
