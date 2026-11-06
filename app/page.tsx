@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   Swords,
@@ -21,11 +22,16 @@ import {
   Bell,
   RefreshCw,
   X,
-  CheckCircle2,
   Terminal,
   TrendingUp,
   Wind,
   CloudRain,
+  Palette,
+  Sun,
+  Moon,
+  Flame,
+  ArrowUpRight,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
@@ -46,204 +52,274 @@ import { WeatherTerrainsModal } from "@/components/mechanics/weather-terrains-mo
 
 import type { PokemonData } from "@/types/pokemon";
 
-const CURRENT_VERSION = "v2.1.0";
+const CURRENT_VERSION = "v2.2.0";
 
-const CHANGELOG = [
-  {
-    version: "v2.1.0",
-    date: "Última actualización",
-    highlights: [
-      "Climas & Terrenos de Minecraft: Guía de efectos de lluvia, sol, granizo y campos sobre movimientos y bloques.",
-      "Calculadora de Captura Contextual: Ratios precisos según Ocaso Ball (cuevas Y<60), Malla Ball y Turno Ball.",
-      "Team Builder & Matchups: Libreta de planes de juego guardada por equipo y exportador en Markdown para Discord.",
-      "Formas Regionales & Monturas: Selector de Alola, Galar, Hisui y Paldea en PokéWiki y guía de vuelo/nado.",
-    ],
+// Paletas de Temas de Interfaz
+type ThemeMode = "midnight" | "slate" | "quartz" | "emerald";
+
+interface ThemeConfig {
+  id: ThemeMode;
+  name: string;
+  bg: string;
+  text: string;
+  cardBg: string;
+  cardBorder: string;
+  accent: string;
+  glow: string;
+}
+
+const THEMES: Record<ThemeMode, ThemeConfig> = {
+  midnight: {
+    id: "midnight",
+    name: "Midnight Void",
+    bg: "bg-[#07090e]",
+    text: "text-zinc-100",
+    cardBg: "bg-zinc-900/40 hover:bg-zinc-900/70",
+    cardBorder: "border-white/10 hover:border-purple-500/50",
+    accent: "from-purple-600 to-indigo-600",
+    glow: "rgba(147, 51, 234, 0.15)",
   },
-  {
-    version: "v2.0.0",
-    date: "Versión previa",
-    highlights: [
-      "Formas regionales en PokéWiki y asistente de cores en Team Builder.",
-    ],
+  slate: {
+    id: "slate",
+    name: "Cyber Slate",
+    bg: "bg-[#0b1120]",
+    text: "text-slate-100",
+    cardBg: "bg-slate-900/50 hover:bg-slate-900/80",
+    cardBorder: "border-cyan-500/20 hover:border-cyan-400/50",
+    accent: "from-cyan-500 to-blue-600",
+    glow: "rgba(6, 182, 212, 0.15)",
   },
-];
+  quartz: {
+    id: "quartz",
+    name: "Nether Quartz (Claro)",
+    bg: "bg-[#f4f6fb]",
+    text: "text-slate-900",
+    cardBg: "bg-white/80 hover:bg-white shadow-sm hover:shadow-xl",
+    cardBorder: "border-slate-200 hover:border-purple-500/50",
+    accent: "from-purple-600 to-indigo-600",
+    glow: "rgba(99, 102, 241, 0.08)",
+  },
+  emerald: {
+    id: "emerald",
+    name: "Taiga Emerald",
+    bg: "bg-[#05130e]",
+    text: "text-emerald-50",
+    cardBg: "bg-[#0a231b]/40 hover:bg-[#0a231b]/80",
+    cardBorder: "border-emerald-500/20 hover:border-emerald-400/50",
+    accent: "from-emerald-500 to-teal-600",
+    glow: "rgba(16, 185, 129, 0.15)",
+  },
+};
 
 interface ToolModule {
   id: string;
   title: string;
+  category: "competitive" | "minecraft" | "breeding";
   badge: string;
   description: string;
   icon: React.ElementType;
-  accent: "purple" | "emerald" | "amber" | "rose" | "cyan" | "indigo";
+  gradient: string;
+  shadowColor: string;
 }
 
-const modules: ToolModule[] = [
+const MODULES: ToolModule[] = [
   {
     id: "pokewiki",
     title: "PokéWiki & Dex",
+    category: "competitive",
     badge: "REGIONALES",
-    description: "Enciclopedia con formas de Alola, Galar, Hisui y Paldea, movimientos y habilidades.",
+    description: "Enciclopedia con variantes de Alola, Galar, Hisui y Paldea, BST, movimientos y habilidades.",
     icon: BookOpen,
-    accent: "purple",
+    gradient: "from-purple-500/20 via-indigo-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-purple-500/20",
   },
   {
     id: "team-builder",
     title: "Team Builder & Matchups",
+    category: "competitive",
     badge: "6V6 + DISCORD",
-    description: "Constructor 6v6, libreta de planes tácticos, cores meta FWG/DSF y exportación a Discord.",
+    description: "Tablero interactivo, descarga de tarjeta en PNG, cores FWG/DSF y planes contra arquetipos meta.",
     icon: Users,
-    accent: "indigo",
-  },
-  {
-    id: "weather-terrains",
-    title: "Climas & Terrenos",
-    badge: "MINECRAFT",
-    description: "Efectos competitivos de lluvia, tormentas, sol abrasador y campos elementales sobre bloques.",
-    icon: CloudRain,
-    accent: "cyan",
-  },
-  {
-    id: "mounts",
-    title: "Monturas & Habilidades",
-    badge: "SUPERVIVENCIA",
-    description: "Guía de vuelo libre, nado rápido y aceleración de eclosión en Pasture (Cuerpo Llama).",
-    icon: Wind,
-    accent: "emerald",
-  },
-  {
-    id: "catch-calc",
-    title: "Calculadora de Captura",
-    badge: "CONTEXTUAL",
-    description: "Fórmula de captura considerando Ocaso Ball (Y<60), Malla Ball y turnos de combate.",
-    icon: Crosshair,
-    accent: "indigo",
+    gradient: "from-indigo-500/20 via-blue-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-indigo-500/20",
   },
   {
     id: "damage-calc",
     title: "Calculadora de Daño",
+    category: "competitive",
     badge: "BREAKPOINTS",
     description: "Buscador de especies, pantallas, climas de Minecraft, terrenos y tiradas de daño oficiales.",
     icon: Swords,
-    accent: "rose",
+    gradient: "from-rose-500/20 via-pink-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-rose-500/20",
   },
   {
     id: "speed-tiers",
     title: "Speed Tiers & Duelo 1v1",
+    category: "competitive",
     badge: "SPEED TIERS",
     description: "Duelos analíticos, cálculo de iniciativa a Nv. 50 con Scarf, Tailwind y Parálisis.",
     icon: Gauge,
-    accent: "cyan",
+    gradient: "from-cyan-500/20 via-sky-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-cyan-500/20",
+  },
+  {
+    id: "weather-terrains",
+    title: "Climas & Terrenos",
+    category: "minecraft",
+    badge: "MINECRAFT",
+    description: "Efectos competitivos de lluvia, tormentas, sol abrasador y campos elementales sobre bloques.",
+    icon: CloudRain,
+    gradient: "from-blue-500/20 via-cyan-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-blue-500/20",
+  },
+  {
+    id: "mounts",
+    title: "Monturas & Habilidades",
+    category: "minecraft",
+    badge: "SUPERVIVENCIA",
+    description: "Guía de vuelo libre, nado rápido y aceleración de eclosión en Pasture (Cuerpo Llama).",
+    icon: Wind,
+    gradient: "from-emerald-500/20 via-teal-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-emerald-500/20",
+  },
+  {
+    id: "catch-calc",
+    title: "Calculadora de Captura",
+    category: "minecraft",
+    badge: "CONTEXTUAL",
+    description: "Fórmula de captura considerando Ocaso Ball (Y<60), Malla Ball y turnos de combate.",
+    icon: Crosshair,
+    gradient: "from-violet-500/20 via-purple-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-violet-500/20",
   },
   {
     id: "server-commands",
     title: "Comandos de Servidor",
+    category: "minecraft",
     badge: "ADMIN & GIVE",
     description: "Generador de comandos /pokegive, /pokespawn con IVs y /give de ítems competitivos.",
     icon: Terminal,
-    accent: "purple",
+    gradient: "from-fuchsia-500/20 via-purple-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-fuchsia-500/20",
   },
   {
     id: "exp-calc",
     title: "Calculadora de EXP",
+    category: "breeding",
     badge: "LEVEL UP",
     description: "Calcula la experiencia total y caramelos Cobblemon necesarios para alcanzar cualquier nivel.",
     icon: TrendingUp,
-    accent: "amber",
+    gradient: "from-amber-500/20 via-orange-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-amber-500/20",
   },
   {
     id: "breeding",
     title: "Pasture & Crianza",
+    category: "breeding",
     badge: "GEN 9",
     description: "Simulador de bloques Pasture, compatibilidad de especies, radio cúbico y objetos recios.",
     icon: Egg,
-    accent: "emerald",
+    gradient: "from-lime-500/20 via-emerald-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-lime-500/20",
   },
   {
     id: "ev-hunting",
     title: "Guía de Caza de EVs",
+    category: "breeding",
     badge: "FARMEO",
     description: "Rutas óptimas en Minecraft por bioma y calculadora exacta de Kills con objetos recios.",
     icon: Compass,
-    accent: "amber",
+    gradient: "from-yellow-500/20 via-amber-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-yellow-500/20",
   },
   {
     id: "habitats",
     title: "Buscador de Hábitats & Drops",
+    category: "minecraft",
     badge: "SPAWNS & DROPS",
     description: "Localizador interactivo de Pokémon por biomas y buscador inverso de materiales de Minecraft.",
     icon: MapPin,
-    accent: "cyan",
+    gradient: "from-teal-500/20 via-cyan-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-teal-500/20",
   },
   {
     id: "evolutions",
     title: "Evoluciones & Amistad",
+    category: "breeding",
     badge: "220 AMISTAD",
     description: "Calculadora de afecto y métodos especiales por bloques de Minecraft (Redstone, Hielo, Musgo).",
     icon: Sparkles,
-    accent: "purple",
+    gradient: "from-pink-500/20 via-purple-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-pink-500/20",
   },
   {
     id: "apricorns",
     title: "Apricorns & Bayas",
+    category: "breeding",
     badge: "CRAFTEO",
     description: "Recetas visuales 3x3 de Poké Balls con sprites de referencia y bayas reductoras de EVs.",
     icon: Apple,
-    accent: "rose",
+    gradient: "from-red-500/20 via-orange-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-red-500/20",
   },
 ];
-
-const accentStyles = {
-  purple: {
-    bgHover: "hover:border-purple-500/50 hover:shadow-purple-500/15",
-    badge: "bg-purple-500/10 text-purple-300 border-purple-500/20",
-    iconBg: "bg-purple-500/15 text-purple-400 group-hover:bg-purple-500/25",
-  },
-  rose: {
-    bgHover: "hover:border-rose-500/50 hover:shadow-rose-500/15",
-    badge: "bg-rose-500/10 text-rose-300 border-rose-500/20",
-    iconBg: "bg-rose-500/15 text-rose-400 group-hover:bg-rose-500/25",
-  },
-  cyan: {
-    bgHover: "hover:border-cyan-500/50 hover:shadow-cyan-500/15",
-    badge: "bg-cyan-500/10 text-cyan-300 border-cyan-500/20",
-    iconBg: "bg-cyan-500/15 text-cyan-400 group-hover:bg-cyan-500/25",
-  },
-  emerald: {
-    bgHover: "hover:border-emerald-500/50 hover:shadow-emerald-500/15",
-    badge: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-    iconBg: "bg-emerald-500/15 text-emerald-400 group-hover:bg-emerald-500/25",
-  },
-  amber: {
-    bgHover: "hover:border-amber-500/50 hover:shadow-amber-500/15",
-    badge: "bg-amber-500/10 text-amber-300 border-amber-500/20",
-    iconBg: "bg-amber-500/15 text-amber-400 group-hover:bg-amber-500/25",
-  },
-  indigo: {
-    bgHover: "hover:border-indigo-500/50 hover:shadow-indigo-500/15",
-    badge: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20",
-    iconBg: "bg-indigo-500/15 text-indigo-400 group-hover:bg-indigo-500/25",
-  },
-};
 
 export default function Home() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
+  // Estados de Personalización Visual (Temas)
+  const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<"all" | "competitive" | "minecraft" | "breeding">("all");
+
+  // Control de Volumen
   const [volume, setVolume] = useState<number>(35);
   const [isVolumePopoverOpen, setIsVolumePopoverOpen] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
 
-  const [showUpdateToast, setShowUpdateToast] = useState(false);
-  const [showChangelogModal, setShowChangelogModal] = useState(false);
+  // Especie destacada dinámica
+  const [featuredPokemon, setFeaturedPokemon] = useState({
+    name: "Garchomp",
+    types: ["Dragon", "Ground"],
+    tier: "OU Meta",
+    sprite: "https://play.pokemonshowdown.com/sprites/ani/garchomp.gif",
+    id: 445,
+  });
 
   useEffect(() => {
+    const savedTheme = localStorage.getItem("ultramoon_theme") as ThemeMode | null;
+    if (savedTheme && THEMES[savedTheme]) setCurrentTheme(savedTheme);
+
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
     if (savedVol !== null) setVolume(Number(savedVol));
 
-    const savedVersion = localStorage.getItem("ultramoon_seen_version");
-    if (savedVersion !== CURRENT_VERSION) setShowUpdateToast(true);
+    // Atajos de teclado pro
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setActiveModal("team-builder");
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        setActiveModal("damage-calc");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const handleSelectTheme = (theme: ThemeMode) => {
+    setCurrentTheme(theme);
+    localStorage.setItem("ultramoon_theme", theme);
+    setIsThemeMenuOpen(false);
+  };
 
   const handleVolumeChange = (newVal: number) => {
     setVolume(newVal);
@@ -261,113 +337,335 @@ export default function Home() {
     } catch (e) {}
   };
 
-  const handleOpenModule = (id: string) => {
-    if (id === "pokewiki") {
-      setIsSearchOpen(true);
-      return;
-    }
-    setActiveModal(id);
-  };
+  const filteredModules = useMemo(() => {
+    if (activeCategory === "all") return MODULES;
+    return MODULES.filter((m) => m.category === activeCategory);
+  }, [activeCategory]);
+
+  const currentThemeConfig = THEMES[currentTheme];
+  const isLight = currentTheme === "quartz";
 
   return (
-    <div className="relative min-h-screen bg-[#07090e] text-zinc-100 overflow-hidden font-sans">
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
-        {/* Cabecera */}
-        <header className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-xl">
+    <div className={`relative min-h-screen ${currentThemeConfig.bg} ${currentThemeConfig.text} font-sans transition-colors duration-500 overflow-x-hidden selection:bg-purple-500/30 selection:text-white`}>
+      {/* Fondo con Orbes Iluminadas */}
+      <div
+        className="pointer-events-none fixed -top-40 left-1/2 -translate-x-1/2 w-[1100px] h-[650px] blur-[140px] rounded-full opacity-60 transition-all duration-700"
+        style={{
+          background: `radial-gradient(circle, ${currentThemeConfig.glow} 0%, transparent 70%)`,
+        }}
+      />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+        {/* Cabecera Flotante con Glassmorphism */}
+        <header className={`flex items-center justify-between p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl border transition-all duration-300 ${
+          isLight ? "bg-white/80 border-slate-200/80 shadow-lg shadow-slate-200/50" : "bg-zinc-950/60 border-white/10 shadow-2xl shadow-black/40"
+        }`}>
+          {/* Logo y Nombre */}
           <div className="flex items-center gap-3.5">
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white font-black text-xl shadow-lg shadow-purple-500/30">
+            <motion.div
+              whileHover={{ rotate: 15, scale: 1.05 }}
+              className={`flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-tr ${currentThemeConfig.accent} text-white font-black text-xl shadow-lg shadow-purple-500/25`}
+            >
               ✦
-            </div>
+            </motion.div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">Ultramoon</h1>
-                <span className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                <h1 className="text-lg sm:text-xl font-black tracking-tight">Ultramoon</h1>
+                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${
+                  isLight ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                }`}>
                   Cobblemon Suite
                 </span>
-                <button
-                  onClick={() => setShowChangelogModal(true)}
-                  className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition"
-                >
-                  {CURRENT_VERSION}
-                </button>
+                <span className="text-[10px] font-mono opacity-60 hidden sm:inline">{CURRENT_VERSION}</span>
               </div>
-              <p className="text-xs text-zinc-400 hidden sm:block">
-                Suite táctica, climas, monturas y analítica competitiva para Minecraft
+              <p className="text-xs opacity-60 hidden sm:block">
+                Suite analítica competitiva, monturas y climas para Minecraft
               </p>
             </div>
           </div>
 
+          {/* Acciones Superiores */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Buscador Rápido */}
             <button
               onClick={() => setIsSearchOpen(true)}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-xs text-zinc-300 transition"
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border text-xs font-semibold transition ${
+                isLight
+                  ? "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700"
+                  : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300 hover:text-white"
+              }`}
             >
-              <Search className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="hidden sm:inline">Buscar</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] bg-white/10 rounded text-zinc-300">⌘K</kbd>
+              <Search className="w-3.5 h-3.5 opacity-60" />
+              <span className="hidden sm:inline">Buscar Pokémon</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 font-mono">⌘K</kbd>
             </button>
 
-            {/* Selector de Volumen */}
+            {/* Selector de Temas */}
+            <div className="relative">
+              <button
+                onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+                className={`p-2 rounded-2xl border transition ${
+                  isLight ? "bg-slate-100 hover:bg-slate-200 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300"
+                }`}
+                title="Cambiar apariencia de la página"
+              >
+                <Palette className="w-4 h-4" />
+              </button>
+
+              <AnimatePresence>
+                {isThemeMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    className={`absolute right-0 top-full mt-2 w-48 p-2 rounded-2xl border shadow-2xl z-50 space-y-1 backdrop-blur-2xl ${
+                      isLight ? "bg-white/95 border-slate-200 text-slate-800" : "bg-zinc-950/95 border-white/10 text-zinc-200"
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-60 px-2 block py-1">
+                      Temas de Interfaz:
+                    </span>
+                    {(Object.keys(THEMES) as ThemeMode[]).map((thm) => (
+                      <button
+                        key={thm}
+                        onClick={() => handleSelectTheme(thm)}
+                        className={`w-full px-3 py-1.5 rounded-xl text-xs font-semibold text-left transition flex items-center justify-between ${
+                          currentTheme === thm
+                            ? "bg-purple-600 text-white font-bold"
+                            : isLight ? "hover:bg-slate-100" : "hover:bg-white/10"
+                        }`}
+                      >
+                        <span>{THEMES[thm].name}</span>
+                        {currentTheme === thm && <span className="text-xs">✓</span>}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Control Desplegable de Volumen */}
             <div className="relative" ref={volumeRef}>
               <button
                 onClick={() => setIsVolumePopoverOpen(!isVolumePopoverOpen)}
-                className="p-2 rounded-xl border border-white/10 bg-zinc-800/80 text-zinc-300 flex items-center gap-1.5"
+                className={`p-2 rounded-2xl border transition flex items-center gap-1.5 ${
+                  volume > 0
+                    ? isLight ? "bg-purple-100 border-purple-300 text-purple-700" : "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                    : isLight ? "bg-slate-100 border-slate-200 text-slate-400" : "bg-white/5 border-white/10 text-zinc-500"
+                }`}
+                title="Ajustar volumen de gritos Pokémon"
               >
-                {volume === 0 ? <VolumeX className="w-4 h-4 text-zinc-500" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-                <span className="text-[10px] font-mono font-bold">{volume}%</span>
+                {volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                <span className="text-[10px] font-mono font-bold hidden sm:inline">{volume}%</span>
               </button>
 
-              {isVolumePopoverOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 p-3 rounded-2xl bg-zinc-900 border border-white/15 shadow-2xl z-50 space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-zinc-400">Volumen</span>
-                    <span className="font-mono text-white">{volume}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={volume}
-                    onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                    className="w-full accent-purple-500"
-                  />
-                </div>
-              )}
+              <AnimatePresence>
+                {isVolumePopoverOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    className={`absolute right-0 top-full mt-2 w-48 p-3 rounded-2xl border shadow-2xl z-50 space-y-2 backdrop-blur-2xl ${
+                      isLight ? "bg-white/95 border-slate-200 text-slate-800" : "bg-zinc-950/95 border-white/10 text-zinc-200"
+                    }`}
+                  >
+                    <div className="flex justify-between text-xs">
+                      <span className="opacity-60 text-[11px] font-semibold">Volumen de audio</span>
+                      <span className="font-mono font-bold text-[11px]">{volume}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={volume}
+                      onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                      className="w-full accent-purple-500 cursor-pointer"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </header>
 
-        {/* Módulos */}
-        <section className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {modules.map((module) => {
-              const Icon = module.icon;
-              const style = accentStyles[module.accent];
+        {/* HERO BANNER DINÁMICO CON ESPECIE DESTACADA */}
+        <section className={`relative overflow-hidden rounded-3xl border p-6 sm:p-10 backdrop-blur-xl transition-all duration-300 ${
+          isLight
+            ? "bg-gradient-to-br from-white via-purple-50/50 to-indigo-50/40 border-slate-200 shadow-xl"
+            : "bg-gradient-to-br from-zinc-900/90 via-purple-950/20 to-zinc-950/90 border-white/10 shadow-2xl shadow-purple-950/20"
+        }`}>
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="max-w-xl space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/15 border border-purple-500/30 text-purple-300">
+                <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-spin" style={{ animationDuration: "6s" }} />
+                <span>Cobblemon Gen 9 Meta Suite</span>
+              </div>
 
-              return (
-                <div
-                  key={module.id}
-                  onClick={() => handleOpenModule(module.id)}
-                  className={`p-6 rounded-2xl bg-zinc-900/50 hover:bg-zinc-900/80 border border-white/5 transition duration-300 cursor-pointer ${style.bgHover}`}
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+                Potencia tu juego <br />
+                <span className={`bg-gradient-to-r ${currentThemeConfig.accent} bg-clip-text text-transparent`}>
+                  al nivel de torneo
+                </span>
+              </h2>
+
+              <p className="text-sm sm:text-base opacity-80 leading-relaxed">
+                Calcula breakpoints de daño en Minecraft, arma alineaciones 6v6 con sinergias FWG/DSF, analiza terrenos de bloques y exporta tarjetas en PNG en un clic.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2.5 pt-2">
+                <button
+                  onClick={() => setActiveModal("team-builder")}
+                  className={`px-5 py-2.5 rounded-2xl font-bold text-xs bg-gradient-to-r ${currentThemeConfig.accent} text-white shadow-lg shadow-purple-600/30 hover:scale-[1.02] active:scale-[0.98] transition`}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-2.5 rounded-xl ${style.iconBg}`}>
-                      <Icon className="w-5 h-5" />
+                  Abrir Team Builder & Matchups
+                </button>
+                <button
+                  onClick={() => setActiveModal("weather-terrains")}
+                  className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition ${
+                    isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
+                  }`}
+                >
+                  Guía de Climas & Terrenos
+                </button>
+              </div>
+            </div>
+
+            {/* Tarjeta Interactiva de Especie Destacada */}
+            <motion.div
+              whileHover={{ y: -4 }}
+              onClick={() => {
+                playPokemonCry(featuredPokemon.id);
+                setIsSearchOpen(true);
+              }}
+              className={`p-4 sm:p-5 rounded-3xl border flex items-center gap-4 cursor-pointer transition shadow-xl group ${
+                isLight ? "bg-white border-slate-200 hover:border-purple-400" : "bg-zinc-900/80 border-white/10 hover:border-purple-500/50"
+              }`}
+            >
+              <img
+                src={featuredPokemon.sprite}
+                alt={featuredPokemon.name}
+                className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-xl pixelated group-hover:scale-110 transition duration-300"
+              />
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono uppercase font-bold text-purple-400 block tracking-wider">
+                  ✦ Especie Destacada
+                </span>
+                <h4 className="text-base sm:text-lg font-black">{featuredPokemon.name}</h4>
+                <div className="flex items-center gap-1">
+                  {featuredPokemon.types.map((t) => (
+                    <span key={t} className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/20 text-purple-300">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-[11px] opacity-60 block pt-1 font-medium group-hover:text-purple-400 transition">
+                  Toca para oír grito y ver ficha →
+                </span>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Barra de Filtros de Categorías */}
+        <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 custom-scrollbar">
+          <div className="flex items-center gap-1.5">
+            {[
+              { id: "all", label: "Todos los Módulos" },
+              { id: "competitive", label: "Competitivo & Batalla" },
+              { id: "minecraft", label: "Mundo de Minecraft" },
+              { id: "breeding", label: "Crianza & Farmeo" },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id as any)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                  activeCategory === cat.id
+                    ? `bg-gradient-to-r ${currentThemeConfig.accent} text-white shadow-md shadow-purple-600/20`
+                    : isLight
+                    ? "bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
+                    : "bg-zinc-900/60 border border-white/5 text-zinc-400 hover:text-white"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <span className="text-xs opacity-60 font-mono hidden md:inline">
+            {filteredModules.length} módulos disponibles
+          </span>
+        </div>
+
+        {/* Cuadrícula Interactiva de Módulos */}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {filteredModules.map((module) => {
+            const Icon = module.icon;
+            return (
+              <motion.div
+                key={module.id}
+                whileHover={{ y: -6, scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={() => {
+                  if (module.id === "pokewiki") setIsSearchOpen(true);
+                  else setActiveModal(module.id);
+                }}
+                className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor}`}
+              >
+                {/* Degradado Ambiental Interno */}
+                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${module.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+
+                <div className="relative z-10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                      <Icon className="w-6 h-6 text-purple-400 group-hover:text-white transition" />
                     </div>
-                    <span className={`px-2.5 py-0.5 text-[11px] font-bold uppercase rounded-full border ${style.badge}`}>
+                    <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-white/5 border border-white/10 opacity-80">
                       {module.badge}
                     </span>
                   </div>
-                  <h4 className="text-base font-bold text-white">{module.title}</h4>
-                  <p className="mt-1 text-xs text-zinc-400 leading-relaxed">{module.description}</p>
+
+                  <div>
+                    <h3 className="text-base font-bold tracking-tight group-hover:text-purple-300 transition-colors">
+                      {module.title}
+                    </h3>
+                    <p className="mt-1.5 text-xs opacity-70 leading-relaxed">
+                      {module.description}
+                    </p>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="relative z-10 mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs font-semibold opacity-60 group-hover:opacity-100 transition">
+                  <span>Abrir simulador</span>
+                  <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
+                </div>
+              </motion.div>
+            );
+          })}
         </section>
+
+        {/* Footer */}
+        <footer className="pt-8 pb-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs opacity-60">
+          <p>Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics · PWA Ready</p>
+          <div className="flex items-center gap-3">
+            <span className="font-mono">Tema activo: {currentThemeConfig.name}</span>
+            <span>•</span>
+            <button
+              onClick={() => {
+                if ("caches" in window) {
+                  caches.keys().then((names) => names.forEach((n) => caches.delete(n)));
+                }
+                window.location.reload();
+              }}
+              className="hover:text-purple-400 transition flex items-center gap-1"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Limpiar Caché</span>
+            </button>
+          </div>
+        </footer>
       </div>
 
-      {/* Instancias de Modales */}
+      {/* Modales Interactivos del Ecosistema */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
       <DamageCalculatorModal isOpen={activeModal === "damage-calc"} onClose={() => setActiveModal(null)} />
       <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />
