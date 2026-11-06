@@ -23,6 +23,8 @@ import {
   RefreshCw,
   X,
   CheckCircle2,
+  Terminal,
+  TrendingUp,
 } from "lucide-react";
 
 // Modales interactivos del proyecto
@@ -37,28 +39,29 @@ import { EvolutionGuideModal } from "@/components/mechanics/evolution-guide-moda
 import { ApricornGuideModal } from "@/components/mechanics/apricorn-guide-modal";
 import { SearchModal } from "@/components/pokemon/search-modal";
 import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
+import { ServerCommandsModal } from "@/components/mechanics/server-commands-modal";
+import { ExpCalculatorModal } from "@/components/mechanics/exp-calculator-modal";
 
 import type { PokemonData } from "@/types/pokemon";
 
-const CURRENT_VERSION = "v1.8.1";
+const CURRENT_VERSION = "v1.9.0";
 
 const CHANGELOG = [
   {
-    version: "v1.8.1",
+    version: "v1.9.0",
     date: "Última actualización",
     highlights: [
-      "Control Desplegable de Volumen: Selector interactivo deslizable (0% a 100%) para los Gritos Pokémon (Cries).",
-      "Persistencia de Audio: El nivel de volumen seleccionado se almacena en el navegador para futuras sesiones.",
-      "Audio Cries Oficiales: Reproducción en 8-bit al abrir fichas en la PokéWiki, Hábitats y Buscador.",
-      "Comparador 1 vs 1: Regla y simulador de Speed Tiers a Nv. 50 con Choice Scarf, Tailwind y Parálisis.",
-      "Team Builder: Caja PC de Almacenamiento (Storage Box) para guardar suplentes y rotar miembros.",
+      "Generador de Comandos Cobblemon: Panel visual con 1 clic para /pokegive, /pokespawn y /give de ítems competitivos.",
+      "Calculadora de Experiencia & Caramelos: Curvas oficiales de EXP y conteo exacto de caramelos (XS a XL) necesarios.",
+      "Team Builder: Coberturas tácticas mejoradas y Caja PC de suplentes optimizada.",
+      "Control de Volumen: Ajuste deslizable de volumen para gritos Pokémon con almacenamiento local.",
     ],
   },
   {
-    version: "v1.8.0",
+    version: "v1.8.1",
     date: "Versión previa",
     highlights: [
-      "Integración de audio cries en modales y calculadora de amistad.",
+      "Control interactivo de volumen deslizable y persistencia en navegador.",
     ],
   },
 ];
@@ -104,6 +107,22 @@ const modules: ToolModule[] = [
     description: "Duelos analíticos, cálculo de iniciativa a Nv. 50 con Scarf, Tailwind y Parálisis.",
     icon: Gauge,
     accent: "cyan",
+  },
+  {
+    id: "server-commands",
+    title: "Comandos de Servidor",
+    badge: "ADMIN & GIVE",
+    description: "Generador de comandos /pokegive, /pokespawn con IVs y /give de ítems competitivos.",
+    icon: Terminal,
+    accent: "purple",
+  },
+  {
+    id: "exp-calc",
+    title: "Calculadora de EXP",
+    badge: "LEVEL UP",
+    description: "Calcula la experiencia total y caramelos Cobblemon necesarios para alcanzar cualquier nivel.",
+    icon: TrendingUp,
+    accent: "amber",
   },
   {
     id: "breeding",
@@ -193,8 +212,7 @@ export default function Home() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
-  // Estados de volumen modificable por el usuario
-  const [volume, setVolume] = useState<number>(35); // 0 a 100
+  const [volume, setVolume] = useState<number>(35);
   const [isVolumePopoverOpen, setIsVolumePopoverOpen] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
 
@@ -202,7 +220,6 @@ export default function Home() {
   const [showChangelogModal, setShowChangelogModal] = useState(false);
 
   useEffect(() => {
-    // Carga de volumen guardado en el navegador
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
     if (savedVol !== null) {
       setVolume(Number(savedVol));
@@ -221,7 +238,6 @@ export default function Home() {
     }
   }, []);
 
-  // Cierre al hacer clic fuera del control de volumen
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (volumeRef.current && !volumeRef.current.contains(e.target as Node)) {
@@ -257,7 +273,6 @@ export default function Home() {
     window.location.reload();
   };
 
-  // Reproductor de Gritos Pokémon respetando el volumen seleccionado
   const playPokemonCry = (pokemonId: number) => {
     if (volume === 0) return;
     try {
@@ -448,7 +463,7 @@ export default function Home() {
             </h2>
 
             <p className="text-sm sm:text-base text-zinc-300/90 leading-relaxed">
-              Cálculo de daño oficial, Speed Tiers interactivos, caja de suplentes PC, exportación visual en PNG y comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
+              Cálculo de daño oficial, generador de comandos de servidor, calculadora de EXP, caja PC de suplentes y exportación en PNG.
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -467,24 +482,24 @@ export default function Home() {
                 <span>Team Builder & PC</span>
               </button>
               <button
-                onClick={() => setActiveModal("speed-tiers")}
+                onClick={() => setActiveModal("server-commands")}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-200 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <Gauge className="w-4 h-4 text-cyan-400" />
-                <span>Speed Tiers 1v1</span>
+                <Terminal className="w-4 h-4 text-purple-400" />
+                <span>Comandos Servidor</span>
               </button>
             </div>
           </div>
         </section>
 
-        {/* Grilla de Herramientas */}
+        {/* Grilla de Herramientas (12 Módulos) */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold tracking-tight text-zinc-200 flex items-center gap-2">
               <Zap className="w-4 h-4 text-purple-400" />
               Herramientas, Enciclopedia y Simuladores
             </h3>
-            <span className="text-xs text-zinc-400">10 módulos disponibles</span>
+            <span className="text-xs text-zinc-400">12 módulos disponibles</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
@@ -551,7 +566,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* GLOBO FLOTANTE DE NOTIFICACIÓN DE ACTUALIZACIÓN */}
+      {/* GLOBO FLOTANTE DE ACTUALIZACIÓN */}
       {showUpdateToast && (
         <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-2xl bg-zinc-900/95 border border-purple-500/40 p-4 shadow-2xl shadow-purple-950/60 backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-300 space-y-3">
           <div className="flex items-start justify-between gap-3">
@@ -564,7 +579,7 @@ export default function Home() {
                   ¡Actualización {CURRENT_VERSION}!
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  Control desplegable de volumen deslizable con persistencia en el navegador.
+                  Panel de Comandos del Servidor y Calculadora de Experiencia & Caramelos.
                 </p>
               </div>
             </div>
@@ -657,15 +672,16 @@ export default function Home() {
         </div>
       )}
 
-      {/* Instancias de los Modales */}
+      {/* Instancias de Modales */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
       <DamageCalculatorModal isOpen={activeModal === "damage-calc"} onClose={() => setActiveModal(null)} />
       <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />
+      <ServerCommandsModal isOpen={activeModal === "server-commands"} onClose={() => setActiveModal(null)} />
+      <ExpCalculatorModal isOpen={activeModal === "exp-calc"} onClose={() => setActiveModal(null)} />
       <PastureSimulator isOpen={activeModal === "breeding"} onClose={() => setActiveModal(null)} />
       <EVTrackerModal isOpen={activeModal === "ev-hunting"} onClose={() => setActiveModal(null)} />
       <CaptureCalculatorModal isOpen={activeModal === "catch-calc"} onClose={() => setActiveModal(null)} />
 
-      {/* Buscador de Hábitats conectado con Audio Cries */}
       <HabitatSearchModal
         isOpen={activeModal === "habitats"}
         onClose={() => setActiveModal(null)}
@@ -678,7 +694,6 @@ export default function Home() {
       <EvolutionGuideModal isOpen={activeModal === "evolutions"} onClose={() => setActiveModal(null)} />
       <ApricornGuideModal isOpen={activeModal === "apricorns"} onClose={() => setActiveModal(null)} />
 
-      {/* Buscador Global ⌘K conectado con Audio Cries */}
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
@@ -689,7 +704,6 @@ export default function Home() {
         }}
       />
 
-      {/* Ficha PokéWiki */}
       {selectedPokemon && (
         <PokemonDetailModal
           pokemon={selectedPokemon}

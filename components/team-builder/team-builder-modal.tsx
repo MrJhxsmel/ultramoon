@@ -19,6 +19,7 @@ import {
   QrCode,
   ShieldAlert,
   ShieldCheck,
+  Swords,
   FileText,
   Link,
   Sparkles,
@@ -56,7 +57,8 @@ const ALL_TYPES = [
   "Rock", "Ghost", "Dragon", "Steel", "Dark", "Fairy"
 ];
 
-const TYPE_CHART: Record<string, Record<string, number>> = {
+// Tabla de efectividades: defensor -> atacante -> multiplicador
+const DEFENSIVE_TYPE_CHART: Record<string, Record<string, number>> = {
   Normal: { Fighting: 2, Ghost: 0 },
   Fire: { Water: 2, Ground: 2, Rock: 2, Fire: 0.5, Grass: 0.5, Ice: 0.5, Bug: 0.5, Steel: 0.5, Fairy: 0.5 },
   Water: { Electric: 2, Grass: 2, Fire: 0.5, Water: 0.5, Ice: 0.5, Steel: 0.5 },
@@ -75,6 +77,28 @@ const TYPE_CHART: Record<string, Record<string, number>> = {
   Steel: { Fire: 2, Fighting: 2, Ground: 2, Poison: 0, Normal: 0.5, Grass: 0.5, Ice: 0.5, Flying: 0.5, Psychic: 0.5, Bug: 0.5, Rock: 0.5, Dragon: 0.5, Steel: 0.5, Fairy: 0.5 },
   Dark: { Fighting: 2, Bug: 2, Fairy: 2, Psychic: 0, Ghost: 0.5, Dark: 0.5 },
   Fairy: { Poison: 2, Steel: 2, Dragon: 0, Fighting: 0.5, Bug: 0.5, Dark: 0.5 },
+};
+
+// Efectividad ofensiva: tipo del ataque -> tipos a los que golpea superefectivo (x2)
+const OFFENSIVE_SUPER_EFFECTIVE: Record<string, string[]> = {
+  Normal: [],
+  Fire: ["Grass", "Ice", "Bug", "Steel"],
+  Water: ["Fire", "Ground", "Rock"],
+  Grass: ["Water", "Ground", "Rock"],
+  Electric: ["Water", "Flying"],
+  Ice: ["Grass", "Ground", "Flying", "Dragon"],
+  Fighting: ["Normal", "Ice", "Rock", "Dark", "Steel"],
+  Poison: ["Grass", "Fairy"],
+  Ground: ["Fire", "Electric", "Poison", "Rock", "Steel"],
+  Flying: ["Grass", "Fighting", "Bug"],
+  Psychic: ["Fighting", "Poison"],
+  Bug: ["Grass", "Psychic", "Dark"],
+  Rock: ["Fire", "Ice", "Flying", "Bug"],
+  Ghost: ["Psychic", "Ghost"],
+  Dragon: ["Dragon"],
+  Steel: ["Ice", "Rock", "Fairy"],
+  Dark: ["Psychic", "Ghost"],
+  Fairy: ["Fighting", "Dragon", "Dark"],
 };
 
 const COMMON_ITEMS = [
@@ -104,8 +128,9 @@ const DEFAULT_TEAMS: SavedTeam[] = [
 export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   const [teams, setTeams] = useState<SavedTeam[]>(DEFAULT_TEAMS);
   const [activeTeamId, setActiveTeamId] = useState<string>("default-team-1");
-  const [storageBox, setStorageBox] = useState<TeamMember[]>([]); // Caja PC de reserva
+  const [storageBox, setStorageBox] = useState<TeamMember[]>([]);
   const [activeTab, setActiveTab] = useState<"team" | "pc">("team");
+  const [matrixTab, setMatrixTab] = useState<"defense" | "offense">("defense");
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [teamNameInput, setTeamNameInput] = useState("");
@@ -250,7 +275,27 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     setSearchQuery("");
   };
 
-  // Mover de la Caja PC al equipo titular
+  const handleApplyPreset = (pokemonName: string) => {
+    if (!editingMember) return;
+    const cleanKey = pokemonName.toLowerCase();
+    const preset = COMPETITIVE_PRESETS[cleanKey];
+    if (preset) {
+      setEditingMember({
+        ...editingMember,
+        customItem: preset.item,
+        customNature: preset.nature,
+        customMoves: preset.moves,
+      });
+    } else {
+      setEditingMember({
+        ...editingMember,
+        customItem: "Life Orb",
+        customNature: "Jolly",
+        customMoves: ["Protect", "Earthquake", "Substitute", "Rest"],
+      });
+    }
+  };
+
   const handleMovePcToTeam = (member: TeamMember) => {
     if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
     savePcToStorage(storageBox.filter((m) => m.memberId !== member.memberId));
@@ -263,7 +308,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     saveTeamsToStorage(updated);
   };
 
-  // Mover del equipo titular a la Caja PC
   const handleMoveTeamToPc = (member: TeamMember) => {
     handleRemovePokemon(member.memberId);
     savePcToStorage([...storageBox, member]);
@@ -301,6 +345,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     setEditingMember(null);
   };
 
+  // Cobertura Defensiva
   const coverageAnalysis = useMemo(() => {
     if (!activeTeam || activeTeam.pokemonList.length === 0) return null;
 
@@ -314,7 +359,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
         let mult = 1;
         member.types.forEach((defType) => {
           const capDef = defType.charAt(0).toUpperCase() + defType.slice(1).toLowerCase();
-          const effect = TYPE_CHART[capDef]?.[attackType];
+          const effect = DEFENSIVE_TYPE_CHART[capDef]?.[attackType];
           if (effect !== undefined) mult *= effect;
         });
 
@@ -326,6 +371,37 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
 
     const highVulnerabilities = Object.entries(analysis).filter(([_, data]) => data.weak >= 3);
     return { analysis, highVulnerabilities };
+  }, [activeTeam]);
+
+  // Cobertura Ofensiva (Puntos ciegos)
+  const offensiveCoverage = useMemo(() => {
+    if (!activeTeam || activeTeam.pokemonList.length === 0) return null;
+
+    // Recolectar tipos de STAB presentes en el equipo
+    const teamStabTypes = new Set<string>();
+    activeTeam.pokemonList.forEach((member) => {
+      member.types.forEach((t) => {
+        const cap = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+        teamStabTypes.add(cap);
+      });
+    });
+
+    // Calcular cuántos tipos cubre superefectivo el equipo
+    const coverageCount: Record<string, number> = {};
+    ALL_TYPES.forEach((t) => {
+      coverageCount[t] = 0;
+    });
+
+    teamStabTypes.forEach((attackType) => {
+      const targets = OFFENSIVE_SUPER_EFFECTIVE[attackType] || [];
+      targets.forEach((targetType) => {
+        coverageCount[targetType] = (coverageCount[targetType] || 0) + 1;
+      });
+    });
+
+    const blindSpots = Object.entries(coverageCount).filter(([_, count]) => count === 0).map(([type]) => type);
+
+    return { coverageCount, blindSpots };
   }, [activeTeam]);
 
   function parseShowdown(rawText: string): TeamMember[] {
@@ -455,7 +531,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
               <div>
                 <h2 className="text-xl font-bold text-white">Team Builder & Caja PC</h2>
                 <p className="text-xs text-zinc-400">
-                  Gestión 6v6, rotación de suplentes en Storage Box y exportaciones
+                  Gestión 6v6, rotación de suplentes, matriz defensiva/ofensiva y exportación
                 </p>
               </div>
             </div>
@@ -489,6 +565,23 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
               </button>
             </div>
           </div>
+
+          {/* Toast */}
+          {sharedToastMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/60 via-indigo-900/40 to-zinc-900 border border-purple-500/40 flex items-center justify-between shadow-lg"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-xs font-bold text-white">{sharedToastMessage}</span>
+              </div>
+              <button onClick={() => setSharedToastMessage(null)} className="text-zinc-400 hover:text-white text-xs px-2">
+                ✕
+              </button>
+            </motion.div>
+          )}
 
           {/* Pestañas: Equipo Titular vs Caja PC */}
           <div className="flex items-center gap-2 border-b border-white/10 pb-3">
@@ -689,6 +782,165 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           )}
 
+          {/* MATRIZ TÁCTICA: DEFENSIVA & OFENSIVA (18 TIPOS) */}
+          {coverageAnalysis && offensiveCoverage && (
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pb-2 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setMatrixTab("defense")}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                      matrixTab === "defense"
+                        ? "bg-purple-600 text-white"
+                        : "bg-zinc-950 text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Defensa (Debilidades)</span>
+                  </button>
+
+                  <button
+                    onClick={() => setMatrixTab("offense")}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                      matrixTab === "offense"
+                        ? "bg-cyan-600 text-white"
+                        : "bg-zinc-950 text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>Ataque (Puntos Ciegos)</span>
+                  </button>
+                </div>
+
+                {matrixTab === "defense" && coverageAnalysis.highVulnerabilities.length > 0 && (
+                  <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    {coverageAnalysis.highVulnerabilities.length} debilidades compartidas (≥3)
+                  </span>
+                )}
+
+                {matrixTab === "offense" && offensiveCoverage.blindSpots.length > 0 && (
+                  <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    {offensiveCoverage.blindSpots.length} tipos sin daño x2
+                  </span>
+                )}
+              </div>
+
+              {/* Matriz Defensiva */}
+              {matrixTab === "defense" && (
+                <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-1.5 text-center">
+                  {ALL_TYPES.map((t) => {
+                    const data = coverageAnalysis.analysis[t];
+                    const isHighWeak = data.weak >= 3;
+                    return (
+                      <div
+                        key={t}
+                        className={`p-2 rounded-xl border transition ${
+                          isHighWeak
+                            ? "bg-rose-500/20 border-rose-500/50"
+                            : data.resist > data.weak
+                            ? "bg-emerald-500/10 border-emerald-500/20"
+                            : "bg-zinc-950 border-white/5"
+                        }`}
+                      >
+                        <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">{t}</span>
+                        <div className="flex items-center justify-center gap-1.5 mt-1 text-[11px] font-mono">
+                          <span className={data.weak > 0 ? "text-rose-400 font-bold" : "text-zinc-600"}>-{data.weak}</span>
+                          <span className={data.resist > 0 ? "text-emerald-400 font-bold" : "text-zinc-600"}>+{data.resist + data.immune}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Matriz Ofensiva */}
+              {matrixTab === "offense" && (
+                <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-1.5 text-center">
+                  {ALL_TYPES.map((t) => {
+                    const count = offensiveCoverage.coverageCount[t] || 0;
+                    const isBlind = count === 0;
+                    return (
+                      <div
+                        key={t}
+                        className={`p-2 rounded-xl border transition ${
+                          isBlind
+                            ? "bg-amber-500/15 border-amber-500/40"
+                            : "bg-cyan-500/15 border-cyan-500/30"
+                        }`}
+                      >
+                        <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">{t}</span>
+                        <div className="mt-1 text-[11px] font-mono font-bold">
+                          {isBlind ? (
+                            <span className="text-amber-400">Punto Ciego</span>
+                          ) : (
+                            <span className="text-cyan-300">{count}x STAB</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Exportaciones */}
+          {activeTeam && activeTeam.pokemonList.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/5">
+              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+                    Formato Showdown
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(exportShowdownText);
+                      setCopiedShowdown(true);
+                      setTimeout(() => setCopiedShowdown(false), 2000);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                      copiedShowdown ? "bg-emerald-500 text-black font-bold" : "bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                  >
+                    {copiedShowdown ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3 text-purple-400" />}
+                    {copiedShowdown ? "Copiado" : "Copiar"}
+                  </button>
+                </div>
+                <pre className="text-[10px] font-mono text-zinc-400 bg-zinc-950 p-2.5 rounded-xl max-h-24 overflow-y-auto custom-scrollbar border border-white/5">
+                  {exportShowdownText}
+                </pre>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-amber-400" />
+                    Comandos /pokegive (Minecraft)
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(exportMinecraftCommands);
+                      setCopiedCommands(true);
+                      setTimeout(() => setCopiedCommands(false), 2000);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                      copiedCommands ? "bg-emerald-500 text-black font-bold" : "bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                  >
+                    {copiedCommands ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3 text-amber-400" />}
+                    {copiedCommands ? "Copiado" : "Copiar"}
+                  </button>
+                </div>
+                <pre className="text-[10px] font-mono text-zinc-400 bg-zinc-950 p-2.5 rounded-xl max-h-24 overflow-y-auto custom-scrollbar border border-white/5">
+                  {exportMinecraftCommands}
+                </pre>
+              </div>
+            </div>
+          )}
+
           {/* Modal Edición de Pokémon */}
           <AnimatePresence>
             {editingMember && (
@@ -712,11 +964,27 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       <img src={editingMember.sprite} alt={editingMember.name} className="w-10 h-10 object-contain" />
                       <div>
                         <h3 className="text-base font-bold text-white">Personalizar {editingMember.name}</h3>
-                        <span className="text-[10px] text-zinc-400">Ajusta objeto, naturaleza y ataques</span>
+                        <span className="text-[10px] text-zinc-400">Ajusta objeto, naturaleza y los 4 ataques</span>
                       </div>
                     </div>
                     <button onClick={() => setEditingMember(null)} className="p-1.5 rounded-xl text-zinc-400 hover:text-white">
                       <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20">
+                    <div className="flex items-center gap-2">
+                      <Wand2 className="w-4 h-4 text-purple-400" />
+                      <div>
+                        <span className="text-xs font-bold text-white block">Preset Competitivo Recomendado</span>
+                        <span className="text-[10px] text-zinc-400">Carga el set meta con 1 clic</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleApplyPreset(editingMember.name)}
+                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white transition shadow-md shadow-purple-600/30"
+                    >
+                      Cargar Set
                     </button>
                   </div>
 
@@ -748,6 +1016,29 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     </div>
                   </div>
 
+                  <div className="space-y-2 pt-2">
+                    <span className="text-[10px] uppercase font-bold text-zinc-500 block">Moveset (4 Ataques):</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[0, 1, 2, 3].map((moveIdx) => {
+                        const moves = editingMember.customMoves || ["Protect", "Substitute", "Tackle", "Rest"];
+                        return (
+                          <input
+                            key={moveIdx}
+                            type="text"
+                            value={moves[moveIdx]}
+                            onChange={(e) => {
+                              const newMoves = [...moves] as [string, string, string, string];
+                              newMoves[moveIdx] = e.target.value;
+                              setEditingMember({ ...editingMember, customMoves: newMoves });
+                            }}
+                            placeholder={`Movimiento #${moveIdx + 1}`}
+                            className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400"
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
                     <button
                       onClick={() => setEditingMember(null)}
@@ -757,11 +1048,55 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     </button>
                     <button
                       onClick={() => handleSaveMemberCustomization(editingMember)}
-                      className="px-4 py-1.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-xs text-white font-bold transition"
+                      className="px-4 py-1.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-xs text-white font-bold transition shadow-lg shadow-purple-500/20"
                     >
                       Guardar Cambios
                     </button>
                   </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Modal QR */}
+          <AnimatePresence>
+            {isQrModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsQrModalOpen(false)}
+                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+                />
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1 }}
+                  className="relative w-full max-w-sm bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4 text-center"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                    <h3 className="text-sm font-bold text-white">Transferir a Celular</h3>
+                    <button onClick={() => setIsQrModalOpen(false)} className="text-zinc-400 hover:text-white">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner">
+                    <img src={qrCodeUrl} alt="QR Team" className="w-56 h-56 object-contain" />
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Escanea este código con tu cámara para cargar tu equipo en el celular con un solo clic.
+                  </p>
+
+                  <button
+                    onClick={() => setIsQrModalOpen(false)}
+                    className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition"
+                  >
+                    Cerrar
+                  </button>
                 </motion.div>
               </div>
             )}
