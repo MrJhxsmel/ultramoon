@@ -20,13 +20,16 @@ import {
   ShieldAlert,
   ShieldCheck,
   Swords,
-  FileText,
-  Link,
   Sparkles,
   Wand2,
   Image as ImageIcon,
   Archive,
   ArrowRightLeft,
+  Flame,
+  Droplet,
+  Leaf,
+  Layers,
+  Link,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
 import { PokemonData } from "@/types/pokemon";
@@ -57,7 +60,6 @@ const ALL_TYPES = [
   "Rock", "Ghost", "Dragon", "Steel", "Dark", "Fairy"
 ];
 
-// Tabla de efectividades: defensor -> atacante -> multiplicador
 const DEFENSIVE_TYPE_CHART: Record<string, Record<string, number>> = {
   Normal: { Fighting: 2, Ghost: 0 },
   Fire: { Water: 2, Ground: 2, Rock: 2, Fire: 0.5, Grass: 0.5, Ice: 0.5, Bug: 0.5, Steel: 0.5, Fairy: 0.5 },
@@ -79,7 +81,6 @@ const DEFENSIVE_TYPE_CHART: Record<string, Record<string, number>> = {
   Fairy: { Poison: 2, Steel: 2, Dragon: 0, Fighting: 0.5, Bug: 0.5, Dark: 0.5 },
 };
 
-// Efectividad ofensiva: tipo del ataque -> tipos a los que golpea superefectivo (x2)
 const OFFENSIVE_SUPER_EFFECTIVE: Record<string, string[]> = {
   Normal: [],
   Fire: ["Grass", "Ice", "Bug", "Steel"],
@@ -121,20 +122,25 @@ const COMPETITIVE_PRESETS: Record<string, { item: string; nature: string; moves:
   dragapult: { item: "Choice Scarf", nature: "Timid", moves: ["Draco Meteor", "Shadow Ball", "U-turn", "Flamethrower"] },
 };
 
-const DEFAULT_TEAMS: SavedTeam[] = [
-  { id: "default-team-1", name: "Equipo Principal VGC", pokemonList: [] },
-];
+const TYPE_CANVAS_COLORS: Record<string, string> = {
+  Normal: "#94a3b8", Fire: "#f97316", Water: "#38bdf8", Grass: "#22c55e",
+  Electric: "#facc15", Ice: "#67e8f9", Fighting: "#ef4444", Poison: "#a855f7",
+  Ground: "#ca8a04", Flying: "#818cf8", Psychic: "#ec4899", Bug: "#84cc16",
+  Rock: "#a16207", Ghost: "#7e22ce", Dragon: "#6366f1", Steel: "#64748b",
+  Dark: "#475569", Fairy: "#f472b6",
+};
 
 export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
-  const [teams, setTeams] = useState<SavedTeam[]>(DEFAULT_TEAMS);
+  const [teams, setTeams] = useState<SavedTeam[]>([
+    { id: "default-team-1", name: "Equipo Principal VGC", pokemonList: [] },
+  ]);
   const [activeTeamId, setActiveTeamId] = useState<string>("default-team-1");
   const [storageBox, setStorageBox] = useState<TeamMember[]>([]);
   const [activeTab, setActiveTab] = useState<"team" | "pc">("team");
-  const [matrixTab, setMatrixTab] = useState<"defense" | "offense">("defense");
+  const [matrixTab, setMatrixTab] = useState<"defense" | "offense" | "synergy">("defense");
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [teamNameInput, setTeamNameInput] = useState("");
-
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -147,18 +153,17 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   const [copiedShowdown, setCopiedShowdown] = useState(false);
   const [copiedCommands, setCopiedCommands] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [sharedToastMessage, setSharedToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    let currentTeams: SavedTeam[] = DEFAULT_TEAMS;
+    let currentTeams: SavedTeam[] = [
+      { id: "default-team-1", name: "Equipo Principal VGC", pokemonList: [] },
+    ];
     const saved = localStorage.getItem("ultramoon_teams");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) currentTeams = parsed;
-      } catch (e) {
-        console.error(e);
-      }
+      } catch (e) {}
     }
 
     const savedPc = localStorage.getItem("ultramoon_pc_box");
@@ -166,41 +171,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       try {
         const parsedPc = JSON.parse(savedPc);
         if (Array.isArray(parsedPc)) setStorageBox(parsedPc);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlTeam = params.get("team");
-      if (urlTeam) {
-        try {
-          const decoded = decodeURIComponent(escape(atob(urlTeam)));
-          const parsedMembers = parseShowdown(decoded);
-
-          if (parsedMembers.length > 0) {
-            const newTeamId = "team-shared-" + Date.now();
-            const newTeam: SavedTeam = {
-              id: newTeamId,
-              name: `Equipo Compartido`,
-              pokemonList: parsedMembers,
-            };
-
-            const updated = [newTeam, ...currentTeams];
-            setTeams(updated);
-            setActiveTeamId(newTeamId);
-            localStorage.setItem("ultramoon_teams", JSON.stringify(updated));
-
-            setSharedToastMessage(`¡Equipo de ${parsedMembers.length} Pokémon recibido con éxito!`);
-            setTimeout(() => setSharedToastMessage(null), 5000);
-            window.history.replaceState({}, document.title, window.location.pathname);
-            return;
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      } catch (e) {}
     }
 
     setTeams(currentTeams);
@@ -246,106 +217,44 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     ).slice(0, 30);
   }, [searchQuery]);
 
-  const handleAddPokemon = (pokemon: PokemonData) => {
-    const cleanKey = pokemon.name.toLowerCase();
-    const preset = COMPETITIVE_PRESETS[cleanKey];
+  // Detector de Cores y Sinergias
+  const synergyData = useMemo(() => {
+    if (!activeTeam || activeTeam.pokemonList.length === 0) return null;
 
-    const newMember: TeamMember = {
-      ...pokemon,
-      memberId: "m-" + Date.now() + Math.random(),
-      customItem: preset?.item || "Leftovers",
-      customNature: preset?.nature || "Timid",
-      customMoves: preset?.moves || ["Protect", "Substitute", "Tackle", "Rest"],
+    const types = new Set(activeTeam.pokemonList.flatMap((p) => p.types.map((t) => t.toLowerCase())));
+
+    const hasFire = types.has("fire");
+    const hasWater = types.has("water");
+    const hasGrass = types.has("grass");
+    const hasFwg = hasFire && hasWater && hasGrass;
+
+    const hasDragon = types.has("dragon");
+    const hasSteel = types.has("steel");
+    const hasFairy = types.has("fairy");
+    const hasDsf = hasDragon && hasSteel && hasFairy;
+
+    const hasGround = types.has("ground");
+
+    const recommendations: string[] = [];
+    if (!hasWater) recommendations.push("Urshifu-R / Rotom-Wash / Toxapex");
+    if (!hasSteel) recommendations.push("Gholdengo / Kingambit / Scizor");
+    if (!hasFairy) recommendations.push("Flutter Mane / Clefable / Iron Valiant");
+    if (!hasGround) recommendations.push("Landorus-T / Great Tusk / Gliscor");
+
+    return {
+      hasFwg,
+      hasDsf,
+      hasFire,
+      hasWater,
+      hasGrass,
+      hasDragon,
+      hasSteel,
+      hasFairy,
+      hasGround,
+      recommendations,
     };
+  }, [activeTeam]);
 
-    if (activeTab === "pc") {
-      savePcToStorage([...storageBox, newMember]);
-    } else {
-      if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
-      const updated = teams.map((t) => {
-        if (t.id === activeTeam.id) {
-          return { ...t, pokemonList: [...t.pokemonList, newMember] };
-        }
-        return t;
-      });
-      saveTeamsToStorage(updated);
-    }
-
-    setIsPickerOpen(false);
-    setSearchQuery("");
-  };
-
-  const handleApplyPreset = (pokemonName: string) => {
-    if (!editingMember) return;
-    const cleanKey = pokemonName.toLowerCase();
-    const preset = COMPETITIVE_PRESETS[cleanKey];
-    if (preset) {
-      setEditingMember({
-        ...editingMember,
-        customItem: preset.item,
-        customNature: preset.nature,
-        customMoves: preset.moves,
-      });
-    } else {
-      setEditingMember({
-        ...editingMember,
-        customItem: "Life Orb",
-        customNature: "Jolly",
-        customMoves: ["Protect", "Earthquake", "Substitute", "Rest"],
-      });
-    }
-  };
-
-  const handleMovePcToTeam = (member: TeamMember) => {
-    if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
-    savePcToStorage(storageBox.filter((m) => m.memberId !== member.memberId));
-    const updated = teams.map((t) => {
-      if (t.id === activeTeam.id) {
-        return { ...t, pokemonList: [...t.pokemonList, member] };
-      }
-      return t;
-    });
-    saveTeamsToStorage(updated);
-  };
-
-  const handleMoveTeamToPc = (member: TeamMember) => {
-    handleRemovePokemon(member.memberId);
-    savePcToStorage([...storageBox, member]);
-  };
-
-  const handleRemovePokemon = (memberId: string) => {
-    if (!activeTeam) return;
-    const updated = teams.map((t) => {
-      if (t.id === activeTeam.id) {
-        return {
-          ...t,
-          pokemonList: t.pokemonList.filter((m) => m.memberId !== memberId),
-        };
-      }
-      return t;
-    });
-    saveTeamsToStorage(updated);
-  };
-
-  const handleSaveMemberCustomization = (updatedMember: TeamMember) => {
-    if (activeTab === "pc") {
-      savePcToStorage(storageBox.map((m) => (m.memberId === updatedMember.memberId ? updatedMember : m)));
-    } else if (activeTeam) {
-      const updated = teams.map((t) => {
-        if (t.id === activeTeam.id) {
-          return {
-            ...t,
-            pokemonList: t.pokemonList.map((m) => (m.memberId === updatedMember.memberId ? updatedMember : m)),
-          };
-        }
-        return t;
-      });
-      saveTeamsToStorage(updated);
-    }
-    setEditingMember(null);
-  };
-
-  // Cobertura Defensiva
   const coverageAnalysis = useMemo(() => {
     if (!activeTeam || activeTeam.pokemonList.length === 0) return null;
 
@@ -373,11 +282,9 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     return { analysis, highVulnerabilities };
   }, [activeTeam]);
 
-  // Cobertura Ofensiva (Puntos ciegos)
   const offensiveCoverage = useMemo(() => {
     if (!activeTeam || activeTeam.pokemonList.length === 0) return null;
 
-    // Recolectar tipos de STAB presentes en el equipo
     const teamStabTypes = new Set<string>();
     activeTeam.pokemonList.forEach((member) => {
       member.types.forEach((t) => {
@@ -386,7 +293,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       });
     });
 
-    // Calcular cuántos tipos cubre superefectivo el equipo
     const coverageCount: Record<string, number> = {};
     ALL_TYPES.forEach((t) => {
       coverageCount[t] = 0;
@@ -400,66 +306,100 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     });
 
     const blindSpots = Object.entries(coverageCount).filter(([_, count]) => count === 0).map(([type]) => type);
-
     return { coverageCount, blindSpots };
   }, [activeTeam]);
 
-  function parseShowdown(rawText: string): TeamMember[] {
-    const blocks = rawText.trim().split(/\n\s*\n/);
-    const newMembers: TeamMember[] = [];
+  const handleAddPokemon = (pokemon: PokemonData) => {
+    const cleanKey = pokemon.name.toLowerCase();
+    const preset = COMPETITIVE_PRESETS[cleanKey];
 
-    for (const block of blocks.slice(0, 6)) {
-      const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
-      if (lines.length === 0) continue;
+    const newMember: TeamMember = {
+      ...pokemon,
+      memberId: "m-" + Date.now() + Math.random(),
+      customItem: preset?.item || "Leftovers",
+      customNature: preset?.nature || "Timid",
+      customMoves: preset?.moves || ["Protect", "Substitute", "Tackle", "Rest"],
+    };
 
-      const firstLine = lines[0];
-      let rawName = firstLine;
-      let item = "Leftovers";
-
-      if (firstLine.includes("@")) {
-        const parts = firstLine.split("@");
-        rawName = parts[0].trim().replace(/\s*\(.*\)/, "");
-        item = parts[1].trim();
-      }
-
-      let nature = "Adamant";
-      const natureLine = lines.find((l) => l.toLowerCase().includes("nature"));
-      if (natureLine) {
-        nature = natureLine.split(" ")[0].trim();
-      }
-
-      const moveLines = lines.filter((l) => l.startsWith("-")).map((l) => l.replace(/^-\s*/, "").trim());
-
-      const customMoves: [string, string, string, string] = [
-        moveLines[0] || "Protect",
-        moveLines[1] || "Substitute",
-        moveLines[2] || "Tackle",
-        moveLines[3] || "Rest",
-      ];
-
-      const found = ALL_POKEMON.find((p) => p.name.toLowerCase() === rawName.toLowerCase()) || {
-        id: 999,
-        name: rawName,
-        types: ["Normal"],
-        stats: { hp: 80, attack: 80, defense: 80, specialAttack: 80, specialDefense: 80, speed: 80 },
-        eggGroups: ["Field"],
-        biomes: ["Plains"],
-        abilities: { primary: "Overgrow" },
-        sprite: `https://play.pokemonshowdown.com/sprites/gen5/${rawName.toLowerCase().replace(/[^a-z0-9]/g, "")}.png`,
-      };
-
-      newMembers.push({
-        ...found,
-        name: rawName,
-        memberId: "m-" + Date.now() + Math.random(),
-        customItem: item,
-        customNature: nature,
-        customMoves: customMoves,
+    if (activeTab === "pc") {
+      savePcToStorage([...storageBox, newMember]);
+    } else {
+      if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
+      const updated = teams.map((t) => {
+        if (t.id === activeTeam.id) return { ...t, pokemonList: [...t.pokemonList, newMember] };
+        return t;
       });
+      saveTeamsToStorage(updated);
     }
 
-    return newMembers;
-  }
+    setIsPickerOpen(false);
+    setSearchQuery("");
+  };
+
+  const handleRemovePokemon = (memberId: string) => {
+    if (!activeTeam) return;
+    const updated = teams.map((t) => {
+      if (t.id === activeTeam.id) {
+        return { ...t, pokemonList: t.pokemonList.filter((m) => m.memberId !== memberId) };
+      }
+      return t;
+    });
+    saveTeamsToStorage(updated);
+  };
+
+  const handleMovePcToTeam = (member: TeamMember) => {
+    if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
+    savePcToStorage(storageBox.filter((m) => m.memberId !== member.memberId));
+    const updated = teams.map((t) => {
+      if (t.id === activeTeam.id) return { ...t, pokemonList: [...t.pokemonList, member] };
+      return t;
+    });
+    saveTeamsToStorage(updated);
+  };
+
+  const handleMoveTeamToPc = (member: TeamMember) => {
+    handleRemovePokemon(member.memberId);
+    savePcToStorage([...storageBox, member]);
+  };
+
+  const handleApplyPreset = (pokemonName: string) => {
+    if (!editingMember) return;
+    const cleanKey = pokemonName.toLowerCase();
+    const preset = COMPETITIVE_PRESETS[cleanKey];
+    if (preset) {
+      setEditingMember({
+        ...editingMember,
+        customItem: preset.item,
+        customNature: preset.nature,
+        customMoves: preset.moves,
+      });
+    } else {
+      setEditingMember({
+        ...editingMember,
+        customItem: "Life Orb",
+        customNature: "Jolly",
+        customMoves: ["Protect", "Earthquake", "Substitute", "Rest"],
+      });
+    }
+  };
+
+  const handleSaveMemberCustomization = (updatedMember: TeamMember) => {
+    if (activeTab === "pc") {
+      savePcToStorage(storageBox.map((m) => (m.memberId === updatedMember.memberId ? updatedMember : m)));
+    } else if (activeTeam) {
+      const updated = teams.map((t) => {
+        if (t.id === activeTeam.id) {
+          return {
+            ...t,
+            pokemonList: t.pokemonList.map((m) => (m.memberId === updatedMember.memberId ? updatedMember : m)),
+          };
+        }
+        return t;
+      });
+      saveTeamsToStorage(updated);
+    }
+    setEditingMember(null);
+  };
 
   const exportShowdownText = useMemo(() => {
     if (!activeTeam || activeTeam.pokemonList.length === 0) return "";
@@ -503,6 +443,137 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(shareableUrl)}`;
   }, [shareableUrl]);
 
+  // Exportador PNG
+  const handleDownloadTeamCard = async () => {
+    if (!activeTeam || activeTeam.pokemonList.length === 0) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.fillStyle = "#07090e";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const glow1 = ctx.createRadialGradient(200, 100, 10, 200, 100, 450);
+    glow1.addColorStop(0, "rgba(168, 85, 247, 0.25)");
+    glow1.addColorStop(1, "rgba(7, 9, 14, 0)");
+    ctx.fillStyle = glow1;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const glow2 = ctx.createRadialGradient(1080, 600, 10, 1080, 600, 500);
+    glow2.addColorStop(0, "rgba(56, 189, 248, 0.2)");
+    glow2.addColorStop(1, "rgba(7, 9, 14, 0)");
+    ctx.fillStyle = glow2;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 32px sans-serif";
+    ctx.fillText(activeTeam.name, 50, 75);
+
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "500 14px sans-serif";
+    ctx.fillText("Ultramoon Competitive Suite • Formato 6v6 VGC / Cobblemon", 50, 105);
+
+    const loadImage = (url: string): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Failed to load ${url}`));
+        img.src = url;
+      });
+    };
+
+    for (let i = 0; i < 6; i++) {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const x = 50 + col * 393;
+      const y = 135 + row * 260;
+      const cardW = 373;
+      const cardH = 245;
+
+      const member = activeTeam.pokemonList[i];
+
+      if (!member) {
+        ctx.save();
+        ctx.setLineDash([6, 6]);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.01)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(x, y, cardW, cardH, 20);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#475569";
+        ctx.font = "600 13px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`Slot #${i + 1} Vacío`, x + cardW / 2, y + cardH / 2);
+        ctx.restore();
+        continue;
+      }
+
+      ctx.fillStyle = "#0f131d";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(x, y, cardW, cardH, 20);
+      ctx.fill();
+      ctx.stroke();
+
+      try {
+        const spriteImg = await loadImage(member.sprite);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(spriteImg, x + 16, y + 16, 84, 84);
+      } catch (err) {
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 26px sans-serif";
+        ctx.fillText("✦", x + 50, y + 68);
+      }
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 19px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(member.name, x + 115, y + 42);
+
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText(`@${member.customItem || "Leftovers"}`, x + 115, y + 64);
+
+      ctx.fillStyle = "#a855f7";
+      ctx.font = "600 11px sans-serif";
+      ctx.fillText(`Nat: ${member.customNature || "Timid"}`, x + 115, y + 83);
+
+      const moves = member.customMoves || ["Protect", "Substitute", "Tackle", "Rest"];
+      moves.forEach((move, mIdx) => {
+        const mCol = mIdx % 2;
+        const mRow = Math.floor(mIdx / 2);
+        const mX = x + 16 + mCol * 174;
+        const mY = y + 130 + mRow * 48;
+
+        ctx.fillStyle = "#161b26";
+        ctx.beginPath();
+        ctx.roundRect(mX, mY, 166, 40, 10);
+        ctx.fill();
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillText("▸", mX + 8, mY + 24);
+
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "600 12px sans-serif";
+        const trimmedMove = move.length > 17 ? move.slice(0, 16) + "…" : move;
+        ctx.fillText(trimmedMove, mX + 22, mY + 24);
+      });
+    }
+
+    const link = document.createElement("a");
+    link.download = `${activeTeam.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}-team.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -531,12 +602,21 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
               <div>
                 <h2 className="text-xl font-bold text-white">Team Builder & Caja PC</h2>
                 <p className="text-xs text-zinc-400">
-                  Gestión 6v6, rotación de suplentes, matriz defensiva/ofensiva y exportación
+                  Gestión 6v6, sinergias FWG / DSF, caja de suplentes y descarga en PNG
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleDownloadTeamCard}
+                disabled={!activeTeam || activeTeam.pokemonList.length === 0}
+                className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-xs font-semibold text-purple-300 transition flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">PNG</span>
+              </button>
+
               <button
                 onClick={() => {
                   if (!shareableUrl) return;
@@ -566,24 +646,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           </div>
 
-          {/* Toast */}
-          {sharedToastMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/60 via-indigo-900/40 to-zinc-900 border border-purple-500/40 flex items-center justify-between shadow-lg"
-            >
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-xs font-bold text-white">{sharedToastMessage}</span>
-              </div>
-              <button onClick={() => setSharedToastMessage(null)} className="text-zinc-400 hover:text-white text-xs px-2">
-                ✕
-              </button>
-            </motion.div>
-          )}
-
-          {/* Pestañas: Equipo Titular vs Caja PC */}
+          {/* Pestañas: Equipo vs Caja PC */}
           <div className="flex items-center gap-2 border-b border-white/10 pb-3">
             <button
               onClick={() => setActiveTab("team")}
@@ -632,27 +695,24 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                           exit={{ opacity: 0, y: 6 }}
                           className="absolute right-0 top-full mt-2 w-80 bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl z-50 p-2 overflow-hidden"
                         >
-                          <div className="relative mb-2">
-                            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input
-                              type="text"
-                              value={searchQuery}
-                              onChange={(e) => setSearchQuery(e.target.value)}
-                              placeholder="Buscar en la Dex..."
-                              autoFocus
-                              className="w-full bg-zinc-950 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400"
-                            />
-                          </div>
-                          <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Buscar en la Dex..."
+                            autoFocus
+                            className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400 mb-2"
+                          />
+                          <div className="max-h-60 overflow-y-auto space-y-1 custom-scrollbar">
                             {availablePokemon.map((p) => (
                               <button
                                 key={p.id + "-" + p.name}
                                 onClick={() => handleAddPokemon(p)}
-                                className="w-full p-2 rounded-xl flex items-center justify-between text-left hover:bg-white/[0.06] text-zinc-300 transition"
+                                className="w-full p-2 rounded-xl flex items-center justify-between text-left hover:bg-white/[0.06] text-zinc-300 transition text-xs"
                               >
-                                <div className="flex items-center gap-2 truncate">
-                                  <img src={p.sprite} alt={p.name} className="w-7 h-7 object-contain" />
-                                  <span className="text-xs font-bold text-white truncate">{p.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <img src={p.sprite} alt={p.name} className="w-6 h-6 object-contain" />
+                                  <span>{p.name}</span>
                                 </div>
                                 <span className="text-[10px] text-zinc-500 font-mono">#{p.id}</span>
                               </button>
@@ -692,9 +752,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                         <div className="min-w-0">
                           <span className="text-xs font-bold text-white truncate block">{member.name}</span>
                           <span className="text-[9px] text-amber-300 font-mono block">@{member.customItem || "Leftovers"}</span>
-                          <span className="text-[10px] font-mono text-zinc-400 mt-0.5 block truncate">
-                            {member.customMoves?.slice(0, 2).join(", ")}...
-                          </span>
                         </div>
                       </div>
 
@@ -782,109 +839,127 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           )}
 
-          {/* MATRIZ TÁCTICA: DEFENSIVA & OFENSIVA (18 TIPOS) */}
-          {coverageAnalysis && offensiveCoverage && (
-            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pb-2 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setMatrixTab("defense")}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                      matrixTab === "defense"
-                        ? "bg-purple-600 text-white"
-                        : "bg-zinc-950 text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Defensa (Debilidades)</span>
-                  </button>
+          {/* MATRIZ TÁCTICA & CORES DE SINERGIA */}
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
+            <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+              <button
+                onClick={() => setMatrixTab("defense")}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
+                  matrixTab === "defense" ? "bg-purple-600 text-white" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Defensa (Debilidades)
+              </button>
+              <button
+                onClick={() => setMatrixTab("offense")}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
+                  matrixTab === "offense" ? "bg-cyan-600 text-white" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Ataque (Puntos Ciegos)
+              </button>
+              <button
+                onClick={() => setMatrixTab("synergy")}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
+                  matrixTab === "synergy" ? "bg-emerald-600 text-white" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Cores & Sinergias Meta
+              </button>
+            </div>
 
-                  <button
-                    onClick={() => setMatrixTab("offense")}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                      matrixTab === "offense"
-                        ? "bg-cyan-600 text-white"
-                        : "bg-zinc-950 text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    <Swords className="w-3.5 h-3.5" />
-                    <span>Ataque (Puntos Ciegos)</span>
-                  </button>
+            {/* PESTAÑA: SINERGIAS Y CORES */}
+            {matrixTab === "synergy" && synergyData && (
+              <div className="space-y-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className={`p-3 rounded-xl border ${synergyData.hasFwg ? "bg-emerald-500/15 border-emerald-500/30" : "bg-zinc-950 border-white/5"}`}>
+                    <span className="font-bold text-white flex items-center gap-1.5 mb-1">
+                      <Flame className="w-3.5 h-3.5 text-orange-400" />
+                      Núcleo FWG (Fuego / Agua / Planta)
+                    </span>
+                    <p className="text-[11px] text-zinc-400">
+                      {synergyData.hasFwg
+                        ? "✓ Núcleo completo activo: excelente balance elemental defensivo y ofensivo."
+                        : "Incompleto. Falta balancear con coberturas de Fuego, Agua o Planta."}
+                    </p>
+                  </div>
+
+                  <div className={`p-3 rounded-xl border ${synergyData.hasDsf ? "bg-purple-500/15 border-purple-500/30" : "bg-zinc-950 border-white/5"}`}>
+                    <span className="font-bold text-white flex items-center gap-1.5 mb-1">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      Núcleo DSF (Dragón / Acero / Hada)
+                    </span>
+                    <p className="text-[11px] text-zinc-400">
+                      {synergyData.hasDsf
+                        ? "✓ Núcleo DSF activo: la tríada defensiva más sólida del formato competitivo."
+                        : "Incompleto. Añadir un Acero o Hada otorgará inmunidades críticas."}
+                    </p>
+                  </div>
                 </div>
 
-                {matrixTab === "defense" && coverageAnalysis.highVulnerabilities.length > 0 && (
-                  <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    {coverageAnalysis.highVulnerabilities.length} debilidades compartidas (≥3)
-                  </span>
-                )}
-
-                {matrixTab === "offense" && offensiveCoverage.blindSpots.length > 0 && (
-                  <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    {offensiveCoverage.blindSpots.length} tipos sin daño x2
-                  </span>
+                {synergyData.recommendations.length > 0 && (
+                  <div className="p-3 rounded-xl bg-zinc-950 border border-white/5 text-xs space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-amber-400 block">
+                      Sugerencias de Pokémon para cubrir huecos:
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {synergyData.recommendations.map((rec, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-white/10 text-zinc-300 font-mono text-[11px]">
+                          {rec}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
+            )}
 
-              {/* Matriz Defensiva */}
-              {matrixTab === "defense" && (
-                <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-1.5 text-center">
-                  {ALL_TYPES.map((t) => {
-                    const data = coverageAnalysis.analysis[t];
-                    const isHighWeak = data.weak >= 3;
-                    return (
-                      <div
-                        key={t}
-                        className={`p-2 rounded-xl border transition ${
-                          isHighWeak
-                            ? "bg-rose-500/20 border-rose-500/50"
-                            : data.resist > data.weak
-                            ? "bg-emerald-500/10 border-emerald-500/20"
-                            : "bg-zinc-950 border-white/5"
-                        }`}
-                      >
-                        <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">{t}</span>
-                        <div className="flex items-center justify-center gap-1.5 mt-1 text-[11px] font-mono">
-                          <span className={data.weak > 0 ? "text-rose-400 font-bold" : "text-zinc-600"}>-{data.weak}</span>
-                          <span className={data.resist > 0 ? "text-emerald-400 font-bold" : "text-zinc-600"}>+{data.resist + data.immune}</span>
-                        </div>
+            {/* Matriz Defensiva */}
+            {matrixTab === "defense" && coverageAnalysis && (
+              <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-1.5 text-center">
+                {ALL_TYPES.map((t) => {
+                  const data = coverageAnalysis.analysis[t];
+                  const isHighWeak = data.weak >= 3;
+                  return (
+                    <div
+                      key={t}
+                      className={`p-2 rounded-xl border ${
+                        isHighWeak ? "bg-rose-500/20 border-rose-500/50" : "bg-zinc-950 border-white/5"
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">{t}</span>
+                      <div className="flex items-center justify-center gap-1 mt-1 text-[11px] font-mono">
+                        <span className={data.weak > 0 ? "text-rose-400 font-bold" : "text-zinc-600"}>-{data.weak}</span>
+                        <span className={data.resist > 0 ? "text-emerald-400 font-bold" : "text-zinc-600"}>+{data.resist}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-              {/* Matriz Ofensiva */}
-              {matrixTab === "offense" && (
-                <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-1.5 text-center">
-                  {ALL_TYPES.map((t) => {
-                    const count = offensiveCoverage.coverageCount[t] || 0;
-                    const isBlind = count === 0;
-                    return (
-                      <div
-                        key={t}
-                        className={`p-2 rounded-xl border transition ${
-                          isBlind
-                            ? "bg-amber-500/15 border-amber-500/40"
-                            : "bg-cyan-500/15 border-cyan-500/30"
-                        }`}
-                      >
-                        <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">{t}</span>
-                        <div className="mt-1 text-[11px] font-mono font-bold">
-                          {isBlind ? (
-                            <span className="text-amber-400">Punto Ciego</span>
-                          ) : (
-                            <span className="text-cyan-300">{count}x STAB</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+            {/* Matriz Ofensiva */}
+            {matrixTab === "offense" && offensiveCoverage && (
+              <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-1.5 text-center">
+                {ALL_TYPES.map((t) => {
+                  const count = offensiveCoverage.coverageCount[t] || 0;
+                  return (
+                    <div
+                      key={t}
+                      className={`p-2 rounded-xl border ${
+                        count === 0 ? "bg-amber-500/15 border-amber-500/40" : "bg-cyan-500/15 border-cyan-500/30"
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">{t}</span>
+                      <span className="text-[10px] font-mono font-bold block mt-1 text-cyan-300">
+                        {count === 0 ? "Ciego" : `${count}x STAB`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Exportaciones */}
           {activeTeam && activeTeam.pokemonList.length > 0 && (
@@ -976,7 +1051,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     <div className="flex items-center gap-2">
                       <Wand2 className="w-4 h-4 text-purple-400" />
                       <div>
-                        <span className="text-xs font-bold text-white block">Preset Competitivo Recomendado</span>
+                        <span className="text-xs font-bold text-white block">Preset Competitivo</span>
                         <span className="text-[10px] text-zinc-400">Carga el set meta con 1 clic</span>
                       </div>
                     </div>

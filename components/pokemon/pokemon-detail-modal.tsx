@@ -11,7 +11,7 @@ import {
   Box,
   Copy,
   Check,
-  Search,
+  Globe,
 } from "lucide-react";
 import type { PokemonData, MoveEntry, PokemonDrop } from "@/types/pokemon";
 
@@ -20,6 +20,72 @@ interface PokemonDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// Catálogo de Formas Regionales
+interface RegionalVariant {
+  region: "Alola" | "Galar" | "Hisui" | "Paldea";
+  types: string[];
+  abilities: { primary: string; secondary?: string; hidden?: string };
+  stats: { hp: number; attack: number; defense: number; specialAttack: number; specialDefense: number; speed: number };
+  spriteSuffix: string;
+}
+
+const REGIONAL_FORMS: Record<string, RegionalVariant[]> = {
+  ninetales: [
+    {
+      region: "Alola",
+      types: ["Ice", "Fairy"],
+      abilities: { primary: "Snow Cloak", hidden: "Snow Warning" },
+      stats: { hp: 73, attack: 67, defense: 75, specialAttack: 81, specialDefense: 100, speed: 109 },
+      spriteSuffix: "-alola",
+    },
+  ],
+  raichu: [
+    {
+      region: "Alola",
+      types: ["Electric", "Psychic"],
+      abilities: { primary: "Surge Surfer" },
+      stats: { hp: 60, attack: 85, defense: 50, specialAttack: 95, specialDefense: 85, speed: 110 },
+      spriteSuffix: "-alola",
+    },
+  ],
+  marowak: [
+    {
+      region: "Alola",
+      types: ["Fire", "Ghost"],
+      abilities: { primary: "Cursed Body", secondary: "Lightning Rod", hidden: "Rock Head" },
+      stats: { hp: 60, attack: 80, defense: 110, specialAttack: 50, specialDefense: 80, speed: 45 },
+      spriteSuffix: "-alola",
+    },
+  ],
+  weezing: [
+    {
+      region: "Galar",
+      types: ["Poison", "Fairy"],
+      abilities: { primary: "Levitate", secondary: "Neutralizing Gas", hidden: "Misty Surge" },
+      stats: { hp: 65, attack: 90, defense: 120, specialAttack: 85, specialDefense: 70, speed: 60 },
+      spriteSuffix: "-galar",
+    },
+  ],
+  zoroark: [
+    {
+      region: "Hisui",
+      types: ["Normal", "Ghost"],
+      abilities: { primary: "Illusion" },
+      stats: { hp: 55, attack: 100, defense: 60, specialAttack: 125, specialDefense: 60, speed: 110 },
+      spriteSuffix: "-hisui",
+    },
+  ],
+  arcanine: [
+    {
+      region: "Hisui",
+      types: ["Fire", "Rock"],
+      abilities: { primary: "Intimidate", secondary: "Flash Fire", hidden: "Rock Head" },
+      stats: { hp: 95, attack: 115, defense: 80, specialAttack: 95, specialDefense: 80, speed: 90 },
+      spriteSuffix: "-hisui",
+    },
+  ],
+};
 
 const TYPE_COLORS: Record<string, string> = {
   normal: "bg-stone-500/20 text-stone-300 border-stone-500/30",
@@ -42,92 +108,29 @@ const TYPE_COLORS: Record<string, string> = {
   fairy: "bg-rose-400/20 text-rose-300 border-rose-400/30",
 };
 
-const TYPE_REAL_MOVES: Record<string, MoveEntry[]> = {
-  poison: [
-    { name: "Picotazo Venenoso", type: "poison", category: "Physical", power: 15, accuracy: 100, pp: 35, learnMethod: "level", level: 1 },
-    { name: "Carga Tóxica", type: "poison", category: "Special", power: 65, accuracy: 100, pp: 10, learnMethod: "level", level: 15 },
-    { name: "Tóxico", type: "poison", category: "Status", power: null, accuracy: 90, pp: 10, learnMethod: "level", level: 25 },
-    { name: "Pulla Nociva", type: "poison", category: "Physical", power: 80, accuracy: 100, pp: 20, learnMethod: "tm" },
-    { name: "Bomba Lodo", type: "poison", category: "Special", power: 90, accuracy: 100, pp: 10, learnMethod: "tm" },
-  ],
-  water: [
-    { name: "Pistola Agua", type: "water", category: "Special", power: 40, accuracy: 100, pp: 25, learnMethod: "level", level: 1 },
-    { name: "Hidropulso", type: "water", category: "Special", power: 60, accuracy: 100, pp: 20, learnMethod: "level", level: 20 },
-    { name: "Recuperación", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "level", level: 35 },
-    { name: "Escaldar (Scald)", type: "water", category: "Special", power: 80, accuracy: 100, pp: 15, learnMethod: "tm" },
-    { name: "Hidrobomba", type: "water", category: "Special", power: 110, accuracy: 80, pp: 5, learnMethod: "tm" },
-  ],
-  fire: [
-    { name: "Ascuas", type: "fire", category: "Special", power: 40, accuracy: 100, pp: 25, learnMethod: "level", level: 1 },
-    { name: "Giro Fuego", type: "fire", category: "Special", power: 35, accuracy: 85, pp: 15, learnMethod: "level", level: 12 },
-    { name: "Lanzallamas", type: "fire", category: "Special", power: 90, accuracy: 100, pp: 15, learnMethod: "tm" },
-    { name: "Envite Ígneo", type: "fire", category: "Physical", power: 120, accuracy: 100, pp: 15, learnMethod: "tm" },
-  ],
-  grass: [
-    { name: "Follaje", type: "grass", category: "Physical", power: 40, accuracy: 100, pp: 40, learnMethod: "level", level: 1 },
-    { name: "Megaagotar", type: "grass", category: "Special", power: 40, accuracy: 100, pp: 15, learnMethod: "level", level: 16 },
-    { name: "Drenadoras", type: "grass", category: "Status", power: null, accuracy: 90, pp: 10, learnMethod: "level", level: 28 },
-    { name: "Energibola", type: "grass", category: "Special", power: 90, accuracy: 100, pp: 10, learnMethod: "tm" },
-  ],
-  electric: [
-    { name: "Impactrueno", type: "electric", category: "Special", power: 40, accuracy: 100, pp: 30, learnMethod: "level", level: 1 },
-    { name: "Onda Trueno", type: "electric", category: "Status", power: null, accuracy: 90, pp: 20, learnMethod: "level", level: 14 },
-    { name: "Rayo", type: "electric", power: 90, category: "Special", accuracy: 100, pp: 15, learnMethod: "tm" },
-    { name: "Voltiocambio", type: "electric", power: 70, category: "Special", accuracy: 100, pp: 20, learnMethod: "tm" },
-  ],
-};
-
-const COBBLEMON_DROPS_BY_TYPE: Record<string, PokemonDrop[]> = {
-  poison: [
-    { item: "Ojo de Araña Fermentado", percentage: 50, quantity: "1" },
-    { item: "Poción Venenosa (Cobblemon)", percentage: 30, quantity: "1" },
-    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
-  ],
-  water: [
-    { item: "Bacalao Crudo / Salmón", percentage: 70, quantity: "1-3" },
-    { item: "Fragmento de Prismarina", percentage: 25, quantity: "1" },
-    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
-  ],
-  fire: [
-    { item: "Vara de Blaze (Polvo de Llama)", percentage: 35, quantity: "1-2" },
-    { item: "Carbón Mineral", percentage: 60, quantity: "2-4" },
-    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
-  ],
-  grass: [
-    { item: "Semillas de Trigo / Calabaza", percentage: 80, quantity: "2-5" },
-    { item: "Baya Milagrosa (Cobblemon)", percentage: 40, quantity: "1" },
-    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
-  ],
-  electric: [
-    { item: "Polvo de Redstone", percentage: 75, quantity: "2-6" },
-    { item: "Lingote de Cobre", percentage: 35, quantity: "1" },
-    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
-  ],
-  default: [
-    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
-    { item: "Cuero / Hueso de Minecraft", percentage: 50, quantity: "1-2" },
-    { item: "Baya Silvestre de Cobblemon", percentage: 40, quantity: "1" },
-  ],
-};
-
 export function PokemonDetailModal({
   pokemon,
   isOpen,
   onClose,
 }: PokemonDetailModalProps) {
   const [isShiny, setIsShiny] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<RegionalVariant | null>(null);
   const [activeTab, setActiveTab] = useState<"moves" | "stats" | "drops">("moves");
-  const [moveFilter, setMoveFilter] = useState<"all" | "level" | "tm" | "egg">("all");
   const [copiedCommand, setCopiedCommand] = useState(false);
 
   if (!isOpen || !pokemon) return null;
 
-  const currentStats = pokemon.stats || pokemon.baseStats;
-  const cleanId = pokemon.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const cleanName = pokemon.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const variants = REGIONAL_FORMS[cleanName] || [];
 
+  const currentTypes = selectedVariant ? selectedVariant.types : pokemon.types;
+  const currentStats = selectedVariant ? selectedVariant.stats : (pokemon.stats || pokemon.baseStats);
+  const currentAbilities = selectedVariant ? selectedVariant.abilities : pokemon.abilities;
+
+  const spriteId = selectedVariant ? `${cleanName}${selectedVariant.spriteSuffix}` : cleanName;
   const animatedGif = isShiny
-    ? `https://play.pokemonshowdown.com/sprites/ani-shiny/${cleanId}.gif`
-    : `https://play.pokemonshowdown.com/sprites/ani/${cleanId}.gif`;
+    ? `https://play.pokemonshowdown.com/sprites/ani-shiny/${spriteId}.gif`
+    : `https://play.pokemonshowdown.com/sprites/ani/${spriteId}.gif`;
 
   const fallbackSprite = isShiny
     ? pokemon.shinySprite || pokemon.sprite
@@ -141,37 +144,9 @@ export function PokemonDetailModal({
     currentStats.specialDefense +
     currentStats.speed;
 
-  const dynamicMoves = useMemo(() => {
-    if (pokemon.moves && pokemon.moves.length > 5) return pokemon.moves;
-
-    const moves: MoveEntry[] = [
-      { name: "Protección (Protect)", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "tm" },
-      { name: "Sustituto (Substitute)", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "tm" },
-      { name: "Descanso (Rest)", type: "psychic", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "tm" },
-    ];
-
-    pokemon.types.forEach((t) => {
-      const typeKey = t.toLowerCase();
-      if (TYPE_REAL_MOVES[typeKey]) {
-        moves.push(...TYPE_REAL_MOVES[typeKey]);
-      }
-    });
-
-    return moves;
-  }, [pokemon]);
-
-  const filteredMoves = dynamicMoves.filter((m) =>
-    moveFilter === "all" ? true : m.learnMethod === moveFilter
-  );
-
-  const dynamicDrops = useMemo(() => {
-    if (pokemon.drops && pokemon.drops.length > 0) return pokemon.drops;
-    const primaryType = pokemon.types[0]?.toLowerCase() || "default";
-    return COBBLEMON_DROPS_BY_TYPE[primaryType] || COBBLEMON_DROPS_BY_TYPE.default;
-  }, [pokemon]);
-
   const handleCopyGive = () => {
-    const cmd = `/pokegive @p ${cleanId} shiny=${isShiny} level=50`;
+    const formParam = selectedVariant ? ` form=${selectedVariant.region.toLowerCase()}` : "";
+    const cmd = `/pokegive @p ${cleanName} level=50 shiny=${isShiny}${formParam}`;
     navigator.clipboard.writeText(cmd);
     setCopiedCommand(true);
     setTimeout(() => setCopiedCommand(false), 2000);
@@ -192,7 +167,6 @@ export function PokemonDetailModal({
           initial={{ opacity: 0, scale: 0.96, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 1, y: 0 }}
-          transition={{ duration: 0.18 }}
           className="relative w-full max-w-3xl max-h-[92vh] overflow-hidden bg-zinc-950 border border-white/10 rounded-3xl shadow-2xl z-50 flex flex-col"
         >
           {/* Header */}
@@ -202,10 +176,10 @@ export function PokemonDetailModal({
                 #{String(pokemon.id).padStart(3, "0")}
               </span>
               <h2 className="text-xl font-extrabold text-white capitalize tracking-tight">
-                {pokemon.name}
+                {pokemon.name} {selectedVariant && `(${selectedVariant.region})`}
               </h2>
               <div className="flex items-center gap-1.5 ml-2">
-                {pokemon.types.map((t) => (
+                {currentTypes.map((t) => (
                   <span
                     key={t}
                     className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
@@ -237,16 +211,37 @@ export function PokemonDetailModal({
             </div>
           </div>
 
+          {/* Selector de Forma Regional (Si aplica) */}
+          {variants.length > 0 && (
+            <div className="px-6 py-2.5 bg-zinc-900/40 border-b border-white/5 flex items-center gap-2 text-xs">
+              <Globe className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-zinc-400 font-semibold text-[11px]">Forma Regional:</span>
+              <button
+                onClick={() => setSelectedVariant(null)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                  selectedVariant === null ? "bg-purple-600 text-white font-bold" : "bg-white/5 text-zinc-400 hover:text-white"
+                }`}
+              >
+                Estándar
+              </button>
+              {variants.map((v) => (
+                <button
+                  key={v.region}
+                  onClick={() => setSelectedVariant(v)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                    selectedVariant?.region === v.region ? "bg-cyan-600 text-white font-bold" : "bg-white/5 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  Forma {v.region}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Cuerpo */}
           <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
               <div className="md:col-span-5 relative rounded-2xl bg-gradient-to-b from-purple-900/20 via-zinc-900/40 to-zinc-950 border border-white/10 flex flex-col items-center justify-center p-6 min-h-[220px]">
-                <div
-                  className={`absolute w-36 h-36 rounded-full blur-2xl opacity-40 pointer-events-none ${
-                    isShiny ? "bg-amber-400" : "bg-purple-600"
-                  }`}
-                />
-
                 <img
                   src={animatedGif}
                   alt={pokemon.name}
@@ -268,7 +263,7 @@ export function PokemonDetailModal({
                 </div>
               </div>
 
-              {/* Habilidades y BST */}
+              {/* Habilidades y Estadísticas */}
               <div className="md:col-span-7 flex flex-col justify-between space-y-3">
                 <div className="space-y-2.5">
                   <span className="text-[11px] uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-1.5">
@@ -279,22 +274,22 @@ export function PokemonDetailModal({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-white/5">
                       <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Primaria</span>
-                      <span className="text-xs font-bold text-white">{pokemon.abilities.primary}</span>
+                      <span className="text-xs font-bold text-white">{currentAbilities.primary}</span>
                     </div>
 
-                    {pokemon.abilities.secondary && (
+                    {currentAbilities.secondary && (
                       <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-white/5">
                         <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Secundaria</span>
-                        <span className="text-xs font-bold text-white">{pokemon.abilities.secondary}</span>
+                        <span className="text-xs font-bold text-white">{currentAbilities.secondary}</span>
                       </div>
                     )}
 
-                    {pokemon.abilities.hidden && (
+                    {currentAbilities.hidden && (
                       <div className="p-2.5 rounded-xl bg-purple-950/20 border border-purple-500/20 sm:col-span-2">
                         <span className="text-[10px] text-purple-400 uppercase font-bold block flex items-center gap-1">
-                          <Sparkles className="w-3 h-3" /> Habilidad Oculta (Pasture / Especial)
+                          <Sparkles className="w-3 h-3" /> Habilidad Oculta
                         </span>
-                        <span className="text-xs font-bold text-purple-200">{pokemon.abilities.hidden}</span>
+                        <span className="text-xs font-bold text-purple-200">{currentAbilities.hidden}</span>
                       </div>
                     )}
                   </div>
@@ -319,135 +314,31 @@ export function PokemonDetailModal({
               </div>
             </div>
 
-            {/* Pestañas */}
-            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-              <button
-                onClick={() => setActiveTab("moves")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === "moves" ? "bg-purple-500 text-white shadow-md shadow-purple-500/20" : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                <Swords className="w-3.5 h-3.5" />
-                <span>Movimientos</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("stats")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === "stats" ? "bg-purple-500 text-white shadow-md shadow-purple-500/20" : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5" />
-                <span>Estadísticas</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("drops")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === "drops" ? "bg-purple-500 text-white shadow-md shadow-purple-500/20" : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                <Box className="w-3.5 h-3.5" />
-                <span>Drops de Minecraft</span>
-              </button>
-            </div>
-
-            {/* Pestaña Movimientos */}
-            {activeTab === "moves" && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">Movimientos oficiales por Nivel, MT y Huevo:</span>
-                  <div className="flex items-center gap-1 text-[11px]">
-                    {(["all", "level", "tm", "egg"] as const).map((method) => (
-                      <button
-                        key={method}
-                        onClick={() => setMoveFilter(method)}
-                        className={`px-2.5 py-1 rounded-lg uppercase font-semibold transition ${
-                          moveFilter === method ? "bg-white/15 text-white" : "text-zinc-500 hover:text-zinc-300"
-                        }`}
-                      >
-                        {method === "all" ? "Todos" : method}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="max-h-60 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
-                  {filteredMoves.map((m, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900/60 border border-white/5 text-xs hover:border-white/10 transition"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-8 text-[10px] font-mono text-zinc-500">
-                          {m.learnMethod === "level" ? `Nv.${m.level || 1}` : m.learnMethod.toUpperCase()}
-                        </span>
-                        <span className="font-bold text-white">{m.name}</span>
-                        <span
-                          className={`text-[9px] uppercase px-1.5 py-0.2 rounded border font-semibold ${
-                            TYPE_COLORS[m.type.toLowerCase()] || "bg-zinc-800 text-zinc-400 border-zinc-700"
-                          }`}
-                        >
-                          {m.type}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-4 text-zinc-400 font-mono text-[11px]">
-                        <span>Pot: {m.power ?? "-"}</span>
-                        <span>Prec: {m.accuracy ? `${m.accuracy}%` : "-"}</span>
-                        <span>PP: {m.pp}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Pestaña Estadísticas */}
-            {activeTab === "stats" && (
-              <div className="space-y-3">
-                {[
-                  { name: "HP", val: currentStats.hp, color: "bg-emerald-500" },
-                  { name: "Ataque", val: currentStats.attack, color: "bg-orange-500" },
-                  { name: "Defensa", val: currentStats.defense, color: "bg-amber-500" },
-                  { name: "Atq. Esp", val: currentStats.specialAttack, color: "bg-cyan-500" },
-                  { name: "Def. Esp", val: currentStats.specialDefense, color: "bg-blue-500" },
-                  { name: "Velocidad", val: currentStats.speed, color: "bg-pink-500" },
-                ].map((stat) => (
-                  <div key={stat.name} className="flex items-center gap-3 text-xs">
-                    <span className="w-20 text-zinc-400 font-semibold">{stat.name}</span>
-                    <span className="w-8 font-mono font-bold text-white text-right">{stat.val}</span>
-                    <div className="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${stat.color}`}
-                        style={{ width: `${Math.min(100, (stat.val / 160) * 100)}%` }}
-                      />
-                    </div>
+            <div className="space-y-3 pt-2">
+              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">
+                Distribución de Estadísticas Base:
+              </span>
+              {[
+                { name: "HP", val: currentStats.hp, color: "bg-emerald-500" },
+                { name: "Ataque", val: currentStats.attack, color: "bg-orange-500" },
+                { name: "Defensa", val: currentStats.defense, color: "bg-amber-500" },
+                { name: "Atq. Esp", val: currentStats.specialAttack, color: "bg-cyan-500" },
+                { name: "Def. Esp", val: currentStats.specialDefense, color: "bg-blue-500" },
+                { name: "Velocidad", val: currentStats.speed, color: "bg-pink-500" },
+              ].map((stat) => (
+                <div key={stat.name} className="flex items-center gap-3 text-xs">
+                  <span className="w-20 text-zinc-400 font-semibold">{stat.name}</span>
+                  <span className="w-8 font-mono font-bold text-white text-right">{stat.val}</span>
+                  <div className="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${stat.color}`}
+                      style={{ width: `${Math.min(100, (stat.val / 160) * 100)}%` }}
+                    />
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Pestaña Drops */}
-            {activeTab === "drops" && (
-              <div className="space-y-2">
-                <span className="text-xs text-zinc-400 block mb-2">
-                  Objetos arrojados al atrapar o derrotar a {pokemon.name} en Cobblemon:
-                </span>
-                {dynamicDrops.map((d, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-white/5 text-xs"
-                  >
-                    <span className="font-bold text-zinc-200">{d.item}</span>
-                    <div className="flex items-center gap-3 font-mono text-zinc-400">
-                      <span>Cantidad: {d.quantity}</span>
-                      <span className="text-purple-400 font-bold">{d.percentage}% prob.</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </div>
         </motion.div>
       </div>

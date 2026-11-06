@@ -25,9 +25,9 @@ import {
   CheckCircle2,
   Terminal,
   TrendingUp,
+  Wind,
 } from "lucide-react";
 
-// Modales interactivos del proyecto
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
 import { DamageCalculatorModal } from "@/components/pokemon/damage-calculator-modal";
 import { PokemonComparator } from "@/components/pokemon/pokemon-comparator";
@@ -41,27 +41,28 @@ import { SearchModal } from "@/components/pokemon/search-modal";
 import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 import { ServerCommandsModal } from "@/components/mechanics/server-commands-modal";
 import { ExpCalculatorModal } from "@/components/mechanics/exp-calculator-modal";
+import { MountsFieldGuideModal } from "@/components/mechanics/mounts-field-guide-modal";
 
 import type { PokemonData } from "@/types/pokemon";
 
-const CURRENT_VERSION = "v1.9.0";
+const CURRENT_VERSION = "v2.0.0";
 
 const CHANGELOG = [
   {
-    version: "v1.9.0",
+    version: "v2.0.0",
     date: "Última actualización",
     highlights: [
-      "Generador de Comandos Cobblemon: Panel visual con 1 clic para /pokegive, /pokespawn y /give de ítems competitivos.",
-      "Calculadora de Experiencia & Caramelos: Curvas oficiales de EXP y conteo exacto de caramelos (XS a XL) necesarios.",
-      "Team Builder: Coberturas tácticas mejoradas y Caja PC de suplentes optimizada.",
-      "Control de Volumen: Ajuste deslizable de volumen para gritos Pokémon con almacenamiento local.",
+      "Formas Regionales: Selector en la PokéWiki para alternar entre Alola, Galar, Hisui y Paldea con stats y tipos reales.",
+      "Asistente de Sinergias: Detección de núcleos meta (FWG / DSF) y recomendaciones automáticas en el Team Builder.",
+      "Monturas & Habilidades de Campo: Nueva guía oficial de vuelo, nado rápido y habilidades pasivas (Cuerpo Llama, Recogida, Sincronía).",
+      "Control de Volumen & Audio Cries: Selector deslizable persistente para sonidos clásicos.",
     ],
   },
   {
-    version: "v1.8.1",
+    version: "v1.9.0",
     date: "Versión previa",
     highlights: [
-      "Control interactivo de volumen deslizable y persistencia en navegador.",
+      "Generador de Comandos Cobblemon y Calculadora de Experiencia & Caramelos.",
     ],
   },
 ];
@@ -79,18 +80,26 @@ const modules: ToolModule[] = [
   {
     id: "pokewiki",
     title: "PokéWiki & Dex",
-    badge: "DATABASE",
-    description: "Enciclopedia Cobblemon: movimientos reales, habilidades ocultas, BST y drops auténticos.",
+    badge: "REGIONALES",
+    description: "Enciclopedia con formas de Alola, Galar, Hisui y Paldea, movimientos y habilidades.",
     icon: BookOpen,
     accent: "purple",
   },
   {
     id: "team-builder",
-    title: "Team Builder & Caja PC",
-    badge: "6V6 + STORAGE",
-    description: "Constructor 6v6 con almacenamiento de suplentes, presets Smogon, PNG y enlace compartible.",
+    title: "Team Builder & Sinergias",
+    badge: "6V6 + CORES",
+    description: "Constructor de equipos, núcleos FWG/DSF, puntos ciegos, Caja PC y tarjeta en PNG.",
     icon: Users,
     accent: "indigo",
+  },
+  {
+    id: "mounts",
+    title: "Monturas & Habilidades",
+    badge: "SUPERVIVENCIA",
+    description: "Guía de vuelo, nado, aceleración de huevos en Pasture (Cuerpo Llama) y farming.",
+    icon: Wind,
+    accent: "emerald",
   },
   {
     id: "damage-calc",
@@ -221,56 +230,15 @@ export default function Home() {
 
   useEffect(() => {
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
-    if (savedVol !== null) {
-      setVolume(Number(savedVol));
-    }
-
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("team")) {
-        setActiveModal("team-builder");
-      }
-    }
+    if (savedVol !== null) setVolume(Number(savedVol));
 
     const savedVersion = localStorage.getItem("ultramoon_seen_version");
-    if (savedVersion !== CURRENT_VERSION) {
-      setShowUpdateToast(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (volumeRef.current && !volumeRef.current.contains(e.target as Node)) {
-        setIsVolumePopoverOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    if (savedVersion !== CURRENT_VERSION) setShowUpdateToast(true);
   }, []);
 
   const handleVolumeChange = (newVal: number) => {
     setVolume(newVal);
     localStorage.setItem("ultramoon_sound_volume", String(newVal));
-  };
-
-  const handleDismissToast = () => {
-    setShowUpdateToast(false);
-    localStorage.setItem("ultramoon_seen_version", CURRENT_VERSION);
-  };
-
-  const handleOpenChangelog = () => {
-    setShowChangelogModal(true);
-    handleDismissToast();
-  };
-
-  const handleForceHardReload = () => {
-    if ("caches" in window) {
-      caches.keys().then((names) => {
-        names.forEach((name) => caches.delete(name));
-      });
-    }
-    localStorage.setItem("ultramoon_seen_version", CURRENT_VERSION);
-    window.location.reload();
   };
 
   const playPokemonCry = (pokemonId: number) => {
@@ -281,21 +249,8 @@ export default function Home() {
       );
       audio.volume = Math.max(0, Math.min(1, volume / 100));
       audio.play().catch(() => {});
-    } catch (e) {
-      // Audio no disponible
-    }
+    } catch (e) {}
   };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setIsSearchOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   const handleOpenModule = (id: string) => {
     if (id === "pokewiki") {
@@ -306,203 +261,76 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#07090e] text-zinc-100 overflow-hidden font-sans selection:bg-purple-500/30 selection:text-white">
-      {/* Luces de ambiente */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[950px] h-[550px] bg-gradient-to-b from-purple-600/25 via-indigo-600/15 to-transparent blur-3xl opacity-80" />
-      <div className="pointer-events-none absolute top-1/3 -right-60 w-[550px] h-[550px] bg-cyan-500/10 blur-[130px] rounded-full" />
-      <div className="pointer-events-none absolute bottom-10 -left-60 w-[550px] h-[550px] bg-rose-500/10 blur-[130px] rounded-full" />
-
-      {/* Cuadrícula sutil */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }}
-      />
-
+    <div className="relative min-h-screen bg-[#07090e] text-zinc-100 overflow-hidden font-sans">
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
-        {/* Cabecera / Navegación */}
-        <header className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-xl shadow-xl shadow-black/20">
+        {/* Cabecera */}
+        <header className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-xl">
           <div className="flex items-center gap-3.5">
-            <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 shadow-lg shadow-purple-500/30 text-white font-black text-xl">
-              <span>✦</span>
-              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full ring-2 ring-zinc-900 animate-pulse" />
+            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white font-black text-xl shadow-lg shadow-purple-500/30">
+              ✦
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                  Ultramoon
-                </h1>
-                <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">Ultramoon</h1>
+                <span className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                   Cobblemon Suite
                 </span>
                 <button
                   onClick={() => setShowChangelogModal(true)}
                   className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition"
-                  title="Ver notas de la versión"
                 >
                   {CURRENT_VERSION}
                 </button>
               </div>
               <p className="text-xs text-zinc-400 hidden sm:block">
-                Suite táctica y analítica competitiva para Minecraft
+                Suite táctica, monturas y analítica competitiva para Minecraft
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Buscador ⌘K */}
             <button
               onClick={() => setIsSearchOpen(true)}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-xs text-zinc-300 hover:text-white transition-all shadow-sm"
-              title="Abrir buscador rápido"
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-xs text-zinc-300 transition"
             >
               <Search className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="hidden sm:inline font-medium">Buscar</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-white/10 rounded text-zinc-300 border border-white/10">
-                ⌘K
-              </kbd>
+              <span className="hidden sm:inline">Buscar</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] bg-white/10 rounded text-zinc-300">⌘K</kbd>
             </button>
 
-            {/* Selector Desplegable de Volumen */}
+            {/* Selector de Volumen */}
             <div className="relative" ref={volumeRef}>
               <button
                 onClick={() => setIsVolumePopoverOpen(!isVolumePopoverOpen)}
-                className={`p-2 rounded-xl border transition-all flex items-center gap-1.5 ${
-                  volume > 0
-                    ? "bg-purple-500/20 border-purple-500/40 text-purple-300 shadow-sm"
-                    : "bg-zinc-800/80 border-white/10 text-zinc-500 hover:text-zinc-300"
-                }`}
-                title="Ajustar volumen de gritos Pokémon"
+                className="p-2 rounded-xl border border-white/10 bg-zinc-800/80 text-zinc-300 flex items-center gap-1.5"
               >
-                {volume === 0 ? (
-                  <VolumeX className="w-4 h-4" />
-                ) : volume < 50 ? (
-                  <Volume1 className="w-4 h-4" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-emerald-400" />
-                )}
-                <span className="text-[10px] font-mono font-bold hidden sm:inline">
-                  {volume}%
-                </span>
+                {volume === 0 ? <VolumeX className="w-4 h-4 text-zinc-500" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+                <span className="text-[10px] font-mono font-bold">{volume}%</span>
               </button>
 
               {isVolumePopoverOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 p-3 rounded-2xl bg-zinc-900 border border-white/15 shadow-2xl z-50 space-y-2 backdrop-blur-xl animate-in fade-in duration-150">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-400 font-semibold text-[11px]">Volumen</span>
-                    <span className="font-mono font-bold text-white text-[11px]">{volume}%</span>
+                <div className="absolute right-0 top-full mt-2 w-48 p-3 rounded-2xl bg-zinc-900 border border-white/15 shadow-2xl z-50 space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-400">Volumen</span>
+                    <span className="font-mono text-white">{volume}%</span>
                   </div>
-
                   <input
                     type="range"
                     min="0"
                     max="100"
                     value={volume}
                     onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                    className="w-full accent-purple-500 cursor-pointer"
+                    className="w-full accent-purple-500"
                   />
-
-                  <div className="flex justify-between pt-1">
-                    <button
-                      onClick={() => handleVolumeChange(0)}
-                      className="text-[10px] text-zinc-500 hover:text-zinc-300"
-                    >
-                      Mute
-                    </button>
-                    <button
-                      onClick={() => handleVolumeChange(35)}
-                      className="text-[10px] text-purple-400 hover:text-purple-300"
-                    >
-                      Óptimo (35%)
-                    </button>
-                    <button
-                      onClick={() => handleVolumeChange(100)}
-                      className="text-[10px] text-zinc-500 hover:text-zinc-300"
-                    >
-                      100%
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
-
-            {/* Pantalla completa */}
-            <button
-              onClick={() => {
-                if (!document.fullscreenElement) {
-                  document.documentElement.requestFullscreen().catch(() => {});
-                } else {
-                  document.exitFullscreen().catch(() => {});
-                }
-              }}
-              className="p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition-all hidden sm:flex"
-              title="Pantalla completa"
-            >
-              <Maximize2 className="w-4 h-4" />
-            </button>
           </div>
         </header>
 
-        {/* Hero Principal */}
-        <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900/90 via-zinc-900/60 to-zinc-950/90 p-8 sm:p-12 backdrop-blur-2xl shadow-2xl shadow-purple-950/20">
-          <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 max-w-2xl space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/15 border border-purple-500/30 text-purple-300">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span>Módulos Tácticos Gen 9</span>
-            </div>
-
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-              Suite Competitiva <br />
-              <span className="bg-gradient-to-r from-purple-400 via-indigo-300 to-cyan-300 bg-clip-text text-transparent">
-                para Cobblemon
-              </span>
-            </h2>
-
-            <p className="text-sm sm:text-base text-zinc-300/90 leading-relaxed">
-              Cálculo de daño oficial, generador de comandos de servidor, calculadora de EXP, caja PC de suplentes y exportación en PNG.
-            </p>
-
-            <div className="pt-2 flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>Explorar PokéWiki</span>
-              </button>
-              <button
-                onClick={() => setActiveModal("team-builder")}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-200 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Users className="w-4 h-4 text-purple-400" />
-                <span>Team Builder & PC</span>
-              </button>
-              <button
-                onClick={() => setActiveModal("server-commands")}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-200 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Terminal className="w-4 h-4 text-purple-400" />
-                <span>Comandos Servidor</span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Grilla de Herramientas (12 Módulos) */}
+        {/* Módulos */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold tracking-tight text-zinc-200 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-purple-400" />
-              Herramientas, Enciclopedia y Simuladores
-            </h3>
-            <span className="text-xs text-zinc-400">12 módulos disponibles</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {modules.map((module) => {
               const Icon = module.icon;
               const style = accentStyles[module.accent];
@@ -511,166 +339,24 @@ export default function Home() {
                 <div
                   key={module.id}
                   onClick={() => handleOpenModule(module.id)}
-                  className={`group relative flex flex-col justify-between p-6 rounded-2xl bg-zinc-900/50 hover:bg-zinc-900/80 border border-white/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer ${style.bgHover}`}
+                  className={`p-6 rounded-2xl bg-zinc-900/50 hover:bg-zinc-900/80 border border-white/5 transition duration-300 cursor-pointer ${style.bgHover}`}
                 >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`p-2.5 rounded-xl transition-colors duration-300 ${style.iconBg}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <span className={`px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase rounded-full border ${style.badge}`}>
-                        {module.badge}
-                      </span>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-2.5 rounded-xl ${style.iconBg}`}>
+                      <Icon className="w-5 h-5" />
                     </div>
-
-                    <div>
-                      <h4 className="text-base font-bold text-white group-hover:text-purple-300 transition-colors">
-                        {module.title}
-                      </h4>
-                      <p className="mt-1.5 text-xs text-zinc-400 leading-relaxed">
-                        {module.description}
-                      </p>
-                    </div>
+                    <span className={`px-2.5 py-0.5 text-[11px] font-bold uppercase rounded-full border ${style.badge}`}>
+                      {module.badge}
+                    </span>
                   </div>
-
-                  <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">
-                    <span>{module.id === "pokewiki" ? "Abrir enciclopedia" : "Abrir módulo"}</span>
-                    <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                  </div>
+                  <h4 className="text-base font-bold text-white">{module.title}</h4>
+                  <p className="mt-1 text-xs text-zinc-400 leading-relaxed">{module.description}</p>
                 </div>
               );
             })}
           </div>
         </section>
-
-        {/* Footer */}
-        <footer className="pt-8 pb-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400">
-          <p>Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics · PWA Ready</p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowChangelogModal(true)}
-              className="hover:text-purple-300 transition underline underline-offset-4"
-            >
-              Registro de Cambios ({CURRENT_VERSION})
-            </button>
-            <span>•</span>
-            <button
-              onClick={handleForceHardReload}
-              className="flex items-center gap-1.5 text-purple-400 hover:text-purple-300 transition font-medium"
-              title="Borrar caché de la app y recargar"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Forzar actualización limpia</span>
-            </button>
-          </div>
-        </footer>
       </div>
-
-      {/* GLOBO FLOTANTE DE ACTUALIZACIÓN */}
-      {showUpdateToast && (
-        <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-2xl bg-zinc-900/95 border border-purple-500/40 p-4 shadow-2xl shadow-purple-950/60 backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-300 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                <Bell className="w-4 h-4 animate-bounce" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  ¡Actualización {CURRENT_VERSION}!
-                </h4>
-                <p className="text-[11px] text-zinc-400">
-                  Panel de Comandos del Servidor y Calculadora de Experiencia & Caramelos.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleDismissToast}
-              className="p-1 rounded-lg text-zinc-500 hover:text-white transition"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 pt-1 border-t border-white/5">
-            <button
-              onClick={handleOpenChangelog}
-              className="flex-1 py-1.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition shadow-md shadow-purple-600/30"
-            >
-              Ver Novedades
-            </button>
-            <button
-              onClick={handleForceHardReload}
-              className="py-1.5 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs border border-white/10 transition flex items-center gap-1"
-              title="Vaciar caché y recargar"
-            >
-              <RefreshCw className="w-3 h-3 text-purple-400" />
-              <span>Limpiar Caché</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE HISTORIAL DE NOVEDADES */}
-      {showChangelogModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-white/10 p-6 sm:p-8 shadow-2xl shadow-purple-950/40 space-y-6">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  <Sparkles className="w-5 h-5 text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Historial de Novedades</h3>
-                  <span className="text-xs text-zinc-400">Últimas adiciones a Ultramoon Suite</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowChangelogModal(false)}
-                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-              {CHANGELOG.map((log) => (
-                <div key={log.version} className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                      {log.version}
-                    </span>
-                    <span className="text-[11px] text-zinc-500">{log.date}</span>
-                  </div>
-                  <ul className="space-y-2 text-xs text-zinc-300">
-                    {log.highlights.map((item, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 flex justify-between items-center border-t border-white/10">
-              <button
-                onClick={handleForceHardReload}
-                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-purple-400" />
-                <span>¿No ves los cambios? Forzar recarga</span>
-              </button>
-              <button
-                onClick={() => setShowChangelogModal(false)}
-                className="px-5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-white transition"
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Instancias de Modales */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
@@ -678,6 +364,7 @@ export default function Home() {
       <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />
       <ServerCommandsModal isOpen={activeModal === "server-commands"} onClose={() => setActiveModal(null)} />
       <ExpCalculatorModal isOpen={activeModal === "exp-calc"} onClose={() => setActiveModal(null)} />
+      <MountsFieldGuideModal isOpen={activeModal === "mounts"} onClose={() => setActiveModal(null)} />
       <PastureSimulator isOpen={activeModal === "breeding"} onClose={() => setActiveModal(null)} />
       <EVTrackerModal isOpen={activeModal === "ev-hunting"} onClose={() => setActiveModal(null)} />
       <CaptureCalculatorModal isOpen={activeModal === "catch-calc"} onClose={() => setActiveModal(null)} />
