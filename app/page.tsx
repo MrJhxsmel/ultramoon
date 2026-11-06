@@ -14,12 +14,8 @@ import {
   Apple,
   BookOpen,
   Search,
-  Maximize2,
   Volume2,
   VolumeX,
-  ExternalLink,
-  Zap,
-  Bell,
   RefreshCw,
   X,
   Terminal,
@@ -27,11 +23,7 @@ import {
   Wind,
   CloudRain,
   Palette,
-  Sun,
-  Moon,
-  Flame,
   ArrowUpRight,
-  SlidersHorizontal,
   User,
   LogOut,
 } from "lucide-react";
@@ -53,6 +45,8 @@ import { MountsFieldGuideModal } from "@/components/mechanics/mounts-field-guide
 import { WeatherTerrainsModal } from "@/components/mechanics/weather-terrains-modal";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { ProfileModal } from "@/components/profile/profile-modal";
+import { ExportCommandsModal } from "@/components/team-builder/export-commands-modal";
+import { EvTrackerCloudModal } from "@/components/mechanics/ev-tracker-cloud-modal";
 import { supabase } from "@/lib/supabase";
 
 import type { PokemonData } from "@/types/pokemon";
@@ -141,7 +135,7 @@ const MODULES: ToolModule[] = [
     id: "team-builder",
     title: "Team Builder & Matchups",
     category: "competitive",
-    badge: "6V6 + EXPORT",
+    badge: "6V6 + CLOUD",
     description: "Tablero interactivo, descarga de tarjeta en PNG, cores FWG/DSF y planes contra arquetipos meta.",
     icon: Users,
     gradient: "from-indigo-500/20 via-blue-500/10 to-transparent",
@@ -231,8 +225,8 @@ const MODULES: ToolModule[] = [
     id: "ev-hunting",
     title: "Guía de Caza de EVs",
     category: "breeding",
-    badge: "FARMEO",
-    description: "Rutas óptimas en Minecraft por bioma y calculadora exacta de Kills con objetos recios.",
+    badge: "CLOUD SYNC",
+    description: "Rutas óptimas en Minecraft y rastreador de EVs persistente guardado en la nube.",
     icon: Compass,
     gradient: "from-yellow-500/20 via-amber-500/10 to-transparent",
     shadowColor: "group-hover:shadow-yellow-500/20",
@@ -274,27 +268,27 @@ export default function Home() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isCommandsModalOpen, setIsCommandsModalOpen] = useState(false);
+  const [isEvCloudModalOpen, setIsEvCloudModalOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
   // Sesión y Perfil en Supabase
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  // Estados de Personalización Visual (Temas)
+  // Temas
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<"all" | "competitive" | "minecraft" | "breeding">("all");
 
-  // Control de Volumen
+  // Volumen
   const [volume, setVolume] = useState<number>(35);
   const [isVolumePopoverOpen, setIsVolumePopoverOpen] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
 
-  // Estado Shiny para la especie destacada
+  // Especie destacada
   const [isFeaturedShiny, setIsFeaturedShiny] = useState(false);
-
-  // Especie destacada dinámica
   const featuredPokemon = {
     name: "Garchomp",
     types: ["Dragon", "Ground"],
@@ -322,9 +316,7 @@ export default function Home() {
           setVolume(data.sound_volume);
         }
       }
-    } catch (e) {
-      // Ignorar si no existe el registro aún
-    }
+    } catch (e) {}
   };
 
   useEffect(() => {
@@ -334,7 +326,6 @@ export default function Home() {
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
     if (savedVol !== null) setVolume(Number(savedVol));
 
-    // Revisar usuario activo en Supabase y cargar su perfil
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) {
         setCurrentUser(data.user);
@@ -345,14 +336,10 @@ export default function Home() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user ?? null;
       setCurrentUser(user);
-      if (user) {
-        loadUserProfile(user.id);
-      } else {
-        setUserProfile(null);
-      }
+      if (user) loadUserProfile(user.id);
+      else setUserProfile(null);
     });
 
-    // Cerrar popovers al hacer click fuera
     const handleClickOutside = (e: MouseEvent) => {
       if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
         setIsThemeMenuOpen(false);
@@ -363,7 +350,6 @@ export default function Home() {
     };
     document.addEventListener("mousedown", handleClickOutside);
 
-    // Atajos de teclado pro
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -379,6 +365,7 @@ export default function Home() {
       }
     };
     window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
@@ -391,7 +378,6 @@ export default function Home() {
     localStorage.setItem("ultramoon_theme", theme);
     setIsThemeMenuOpen(false);
 
-    // Si el usuario está autenticado, sincronizar tema en su perfil de Supabase
     if (currentUser) {
       await supabase.from("user_profiles").upsert(
         {
@@ -445,7 +431,6 @@ export default function Home() {
   const currentThemeConfig = THEMES[currentTheme];
   const isLight = currentTheme === "quartz";
 
-  // Identificador visual para el avatar
   const displayName =
     userProfile?.trainer_name ||
     userProfile?.minecraft_username ||
@@ -458,7 +443,6 @@ export default function Home() {
 
   return (
     <div className={`relative min-h-screen ${currentThemeConfig.bg} ${currentThemeConfig.text} font-sans transition-colors duration-500 overflow-x-hidden selection:bg-purple-500/30 selection:text-white`}>
-      {/* Fondo con Orbes Iluminadas */}
       <div
         className="pointer-events-none fixed -top-40 left-1/2 -translate-x-1/2 w-[1100px] h-[650px] blur-[140px] rounded-full opacity-60 transition-all duration-700"
         style={{
@@ -467,11 +451,9 @@ export default function Home() {
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-        {/* Cabecera Flotante con Glassmorphism */}
         <header className={`flex items-center justify-between p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl border transition-all duration-300 relative z-30 ${
           isLight ? "bg-white/80 border-slate-200/80 shadow-lg shadow-slate-200/50" : "bg-zinc-950/60 border-white/10 shadow-2xl shadow-black/40"
         }`}>
-          {/* Logo y Nombre */}
           <div className="flex items-center gap-3.5">
             <motion.div
               whileHover={{ rotate: 15, scale: 1.05 }}
@@ -495,9 +477,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Acciones Superiores */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Buscador Rápido */}
             <button
               onClick={() => setIsSearchOpen(true)}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border text-xs font-semibold transition ${
@@ -511,7 +491,6 @@ export default function Home() {
               <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 font-mono">⌘K</kbd>
             </button>
 
-            {/* Botón de Autenticación / Perfil */}
             {currentUser ? (
               <div className="flex items-center gap-2">
                 <button
@@ -559,7 +538,6 @@ export default function Home() {
               </button>
             )}
 
-            {/* Selector de Temas */}
             <div className="relative" ref={themeRef}>
               <button
                 onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
@@ -603,7 +581,6 @@ export default function Home() {
               </AnimatePresence>
             </div>
 
-            {/* Control de Volumen */}
             <div className="relative" ref={volumeRef}>
               <button
                 onClick={() => setIsVolumePopoverOpen(!isVolumePopoverOpen)}
@@ -668,7 +645,7 @@ export default function Home() {
               </h2>
 
               <p className="text-sm sm:text-base opacity-80 leading-relaxed">
-                Calcula breakpoints de daño en Minecraft, arma alineaciones 6v6 con sinergias FWG/DSF, analiza terrenos de bloques y exporta tarjetas en PNG en un clic.
+                Calcula breakpoints de daño en Minecraft, arma alineaciones 6v6 con sinergias FWG/DSF, analiza terrenos de bloques y sincroniza tus metas de EVs en la nube.
               </p>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-2">
@@ -679,17 +656,21 @@ export default function Home() {
                   Abrir Team Builder & Matchups
                 </button>
                 <button
-                  onClick={() => setActiveModal("weather-terrains")}
-                  className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition ${
+                  onClick={() => {
+                    if (currentUser) setIsEvCloudModalOpen(true);
+                    else setIsAuthOpen(true);
+                  }}
+                  className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition flex items-center gap-1.5 ${
                     isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
                   }`}
                 >
-                  Guía de Climas & Terrenos
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Caza de EVs Cloud</span>
                 </button>
               </div>
             </div>
 
-            {/* Tarjeta Interactiva de Especie Destacada */}
+            {/* Especie Destacada */}
             <motion.div
               whileHover={{ y: -4 }}
               className={`p-4 sm:p-5 rounded-3xl border flex items-center gap-4 transition shadow-xl group relative ${
@@ -765,7 +746,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Barra de Filtros */}
+        {/* Filtros */}
         <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 custom-scrollbar">
           <div className="flex items-center gap-1.5">
             {[
@@ -795,7 +776,7 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Cuadrícula de Módulos */}
+        {/* Grilla de Módulos */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredModules.map((module: ToolModule) => {
             const Icon = module.icon;
@@ -806,6 +787,7 @@ export default function Home() {
                 whileTap={{ scale: 0.99 }}
                 onClick={() => {
                   if (module.id === "pokewiki") setIsSearchOpen(true);
+                  else if (module.id === "ev-hunting" && currentUser) setIsEvCloudModalOpen(true);
                   else setActiveModal(module.id);
                 }}
                 className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor}`}
@@ -863,26 +845,35 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Modal de Autenticación */}
+      {/* Modales de Autenticación y Perfil */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
-      {/* Modal de Ajustes de Perfil */}
       <ProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         user={currentUser}
         onProfileUpdated={(updated) => {
           setUserProfile(updated);
-          if (updated.preferred_theme && THEMES[updated.preferred_theme as ThemeMode]) {
-            setCurrentTheme(updated.preferred_theme as ThemeMode);
-          }
-          if (updated.sound_volume !== undefined) {
-            setVolume(updated.sound_volume);
-          }
+          if (updated.preferred_theme) setCurrentTheme(updated.preferred_theme);
+          if (updated.sound_volume !== undefined) setVolume(updated.sound_volume);
         }}
       />
 
-      {/* Modales Interactivos del Ecosistema */}
+      <ExportCommandsModal
+        isOpen={isCommandsModalOpen}
+        onClose={() => setIsCommandsModalOpen(false)}
+        teamName="Equipo Competitivo"
+        pokemonList={[]}
+        trainerName={userProfile?.trainer_name || userProfile?.minecraft_username || "@s"}
+      />
+
+      <EvTrackerCloudModal
+        isOpen={isEvCloudModalOpen}
+        onClose={() => setIsEvCloudModalOpen(false)}
+        user={currentUser}
+      />
+
+      {/* Simuladores de la Suite */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
       <DamageCalculatorModal isOpen={activeModal === "damage-calc"} onClose={() => setActiveModal(null)} />
       <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />
