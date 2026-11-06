@@ -15,7 +15,6 @@ import {
   Search,
   Maximize2,
   Volume2,
-  Volume1,
   VolumeX,
   ExternalLink,
   Zap,
@@ -26,6 +25,7 @@ import {
   Terminal,
   TrendingUp,
   Wind,
+  CloudRain,
 } from "lucide-react";
 
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
@@ -42,27 +42,28 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 import { ServerCommandsModal } from "@/components/mechanics/server-commands-modal";
 import { ExpCalculatorModal } from "@/components/mechanics/exp-calculator-modal";
 import { MountsFieldGuideModal } from "@/components/mechanics/mounts-field-guide-modal";
+import { WeatherTerrainsModal } from "@/components/mechanics/weather-terrains-modal";
 
 import type { PokemonData } from "@/types/pokemon";
 
-const CURRENT_VERSION = "v2.0.0";
+const CURRENT_VERSION = "v2.1.0";
 
 const CHANGELOG = [
   {
-    version: "v2.0.0",
+    version: "v2.1.0",
     date: "Última actualización",
     highlights: [
-      "Formas Regionales: Selector en la PokéWiki para alternar entre Alola, Galar, Hisui y Paldea con stats y tipos reales.",
-      "Asistente de Sinergias: Detección de núcleos meta (FWG / DSF) y recomendaciones automáticas en el Team Builder.",
-      "Monturas & Habilidades de Campo: Nueva guía oficial de vuelo, nado rápido y habilidades pasivas (Cuerpo Llama, Recogida, Sincronía).",
-      "Control de Volumen & Audio Cries: Selector deslizable persistente para sonidos clásicos.",
+      "Climas & Terrenos de Minecraft: Guía de efectos de lluvia, sol, granizo y campos sobre movimientos y bloques.",
+      "Calculadora de Captura Contextual: Ratios precisos según Ocaso Ball (cuevas Y<60), Malla Ball y Turno Ball.",
+      "Team Builder & Matchups: Libreta de planes de juego guardada por equipo y exportador en Markdown para Discord.",
+      "Formas Regionales & Monturas: Selector de Alola, Galar, Hisui y Paldea en PokéWiki y guía de vuelo/nado.",
     ],
   },
   {
-    version: "v1.9.0",
+    version: "v2.0.0",
     date: "Versión previa",
     highlights: [
-      "Generador de Comandos Cobblemon y Calculadora de Experiencia & Caramelos.",
+      "Formas regionales en PokéWiki y asistente de cores en Team Builder.",
     ],
   },
 ];
@@ -87,19 +88,35 @@ const modules: ToolModule[] = [
   },
   {
     id: "team-builder",
-    title: "Team Builder & Sinergias",
-    badge: "6V6 + CORES",
-    description: "Constructor de equipos, núcleos FWG/DSF, puntos ciegos, Caja PC y tarjeta en PNG.",
+    title: "Team Builder & Matchups",
+    badge: "6V6 + DISCORD",
+    description: "Constructor 6v6, libreta de planes tácticos, cores meta FWG/DSF y exportación a Discord.",
     icon: Users,
     accent: "indigo",
+  },
+  {
+    id: "weather-terrains",
+    title: "Climas & Terrenos",
+    badge: "MINECRAFT",
+    description: "Efectos competitivos de lluvia, tormentas, sol abrasador y campos elementales sobre bloques.",
+    icon: CloudRain,
+    accent: "cyan",
   },
   {
     id: "mounts",
     title: "Monturas & Habilidades",
     badge: "SUPERVIVENCIA",
-    description: "Guía de vuelo, nado, aceleración de huevos en Pasture (Cuerpo Llama) y farming.",
+    description: "Guía de vuelo libre, nado rápido y aceleración de eclosión en Pasture (Cuerpo Llama).",
     icon: Wind,
     accent: "emerald",
+  },
+  {
+    id: "catch-calc",
+    title: "Calculadora de Captura",
+    badge: "CONTEXTUAL",
+    description: "Fórmula de captura considerando Ocaso Ball (Y<60), Malla Ball y turnos de combate.",
+    icon: Crosshair,
+    accent: "indigo",
   },
   {
     id: "damage-calc",
@@ -148,14 +165,6 @@ const modules: ToolModule[] = [
     description: "Rutas óptimas en Minecraft por bioma y calculadora exacta de Kills con objetos recios.",
     icon: Compass,
     accent: "amber",
-  },
-  {
-    id: "catch-calc",
-    title: "Calculadora de Captura",
-    badge: "CATCH RATE",
-    description: "Fórmula matemática de captura Cobblemon según salud, cuevas (Y < 60) y Poké Balls.",
-    icon: Crosshair,
-    accent: "indigo",
   },
   {
     id: "habitats",
@@ -283,7 +292,7 @@ export default function Home() {
                 </button>
               </div>
               <p className="text-xs text-zinc-400 hidden sm:block">
-                Suite táctica, monturas y analítica competitiva para Minecraft
+                Suite táctica, climas, monturas y analítica competitiva para Minecraft
               </p>
             </div>
           </div>
@@ -362,6 +371,7 @@ export default function Home() {
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
       <DamageCalculatorModal isOpen={activeModal === "damage-calc"} onClose={() => setActiveModal(null)} />
       <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />
+      <WeatherTerrainsModal isOpen={activeModal === "weather-terrains"} onClose={() => setActiveModal(null)} />
       <ServerCommandsModal isOpen={activeModal === "server-commands"} onClose={() => setActiveModal(null)} />
       <ExpCalculatorModal isOpen={activeModal === "exp-calc"} onClose={() => setActiveModal(null)} />
       <MountsFieldGuideModal isOpen={activeModal === "mounts"} onClose={() => setActiveModal(null)} />
