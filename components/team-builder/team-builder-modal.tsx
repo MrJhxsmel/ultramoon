@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   FileText,
   Link,
-  Share2,
+  Sparkles,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
 import { PokemonData } from "@/types/pokemon";
@@ -105,34 +105,61 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   const [copiedCommands, setCopiedCommands] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Carga desde localStorage y verificación de URL compartida
+  // Notificación de nuevo equipo compartido recibido
+  const [sharedToastMessage, setSharedToastMessage] = useState<string | null>(null);
+
+  // Inicialización y carga de enlaces compartidos
   useEffect(() => {
+    let currentTeams: SavedTeam[] = DEFAULT_TEAMS;
+    const saved = localStorage.getItem("ultramoon_teams");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          currentTeams = parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     // Verificar si hay equipo en la URL (?team=...)
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const urlTeam = params.get("team");
       if (urlTeam) {
         try {
-          const decoded = atob(urlTeam);
-          importFromShowdownText(decoded, "Equipo Compartido");
+          const decoded = decodeURIComponent(escape(atob(urlTeam)));
+          const parsedMembers = parseShowdown(decoded);
+
+          if (parsedMembers.length > 0) {
+            const newTeamId = "team-shared-" + Date.now();
+            const newTeam: SavedTeam = {
+              id: newTeamId,
+              name: `Equipo Compartido`,
+              pokemonList: parsedMembers,
+            };
+
+            const updated = [newTeam, ...currentTeams];
+            setTeams(updated);
+            setActiveTeamId(newTeamId); // Selecciona inmediatamente el nuevo equipo
+            localStorage.setItem("ultramoon_teams", JSON.stringify(updated));
+
+            setSharedToastMessage(`¡Equipo de ${parsedMembers.length} Pokémon recibido con éxito!`);
+            setTimeout(() => setSharedToastMessage(null), 5000);
+
+            // Limpiar parámetro de URL para evitar duplicados al recargar
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+          }
         } catch (e) {
           console.error("Error al decodificar equipo de la URL", e);
         }
       }
     }
 
-    const saved = localStorage.getItem("ultramoon_teams");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setTeams(parsed);
-          setActiveTeamId(parsed[0].id);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
+    setTeams(currentTeams);
+    setActiveTeamId(currentTeams[0].id);
   }, []);
 
   const saveTeamsToStorage = (updatedTeams: SavedTeam[]) => {
@@ -250,8 +277,8 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     return { analysis, highVulnerabilities };
   }, [activeTeam]);
 
-  // Parser reusable
-  const importFromShowdownText = (rawText: string, customTeamName?: string) => {
+  // Función de parseo Showdown
+  function parseShowdown(rawText: string): TeamMember[] {
     const blocks = rawText.trim().split(/\n\s*\n/);
     const newMembers: TeamMember[] = [];
 
@@ -309,16 +336,25 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       });
     }
 
-    if (newMembers.length > 0) {
+    return newMembers;
+  }
+
+  const handleManualImport = () => {
+    const parsed = parseShowdown(importText);
+    if (parsed.length > 0) {
+      const newTeamId = "team-" + Date.now();
       const newTeam: SavedTeam = {
-        id: "team-" + Date.now(),
-        name: customTeamName || `Equipo Importado ${teams.length + 1}`,
-        pokemonList: newMembers,
+        id: newTeamId,
+        name: `Equipo Importado ${teams.length + 1}`,
+        pokemonList: parsed,
       };
-      saveTeamsToStorage([...teams, newTeam]);
-      setActiveTeamId(newTeam.id);
+      const updated = [...teams, newTeam];
+      saveTeamsToStorage(updated);
+      setActiveTeamId(newTeamId);
       setIsImportModalOpen(false);
       setImportText("");
+      setSharedToastMessage(`¡Equipo importado con éxito!`);
+      setTimeout(() => setSharedToastMessage(null), 4000);
     }
   };
 
@@ -353,7 +389,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       .join("\n");
   }, [activeTeam]);
 
-  // Generador de URL directa para compartir por WhatsApp / Discord
   const shareableUrl = useMemo(() => {
     if (!activeTeam || activeTeam.pokemonList.length === 0 || typeof window === "undefined") return "";
     const b64 = btoa(unescape(encodeURIComponent(exportShowdownText)));
@@ -416,7 +451,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     ? "bg-emerald-500 text-black border-emerald-400 font-bold"
                     : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300"
                 }`}
-                title="Copiar enlace único para abrir en otro navegador"
               >
                 {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5 text-purple-400" />}
                 <span>{copiedLink ? "¡Enlace Copiado!" : "Compartir Enlace"}</span>
@@ -447,6 +481,28 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
               </button>
             </div>
           </div>
+
+          {/* BANNER DE NOTIFICACIÓN DE EQUIPO COMPARTIDO CARGADO */}
+          {sharedToastMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/60 via-indigo-900/40 to-zinc-900 border border-purple-500/40 flex items-center justify-between shadow-lg"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-xs font-bold text-white">
+                  {sharedToastMessage}
+                </span>
+              </div>
+              <button
+                onClick={() => setSharedToastMessage(null)}
+                className="text-zinc-400 hover:text-white text-xs px-2"
+              >
+                ✕
+              </button>
+            </motion.div>
+          )}
 
           {/* Cajas y Equipos */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-white/5">
@@ -520,6 +576,19 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     className="p-1.5 rounded-lg bg-zinc-950 border border-white/10 text-zinc-400 hover:text-white text-xs"
                   >
                     <Edit2 className="w-3 h-3" />
+                  </button>
+                )}
+
+                {teams.length > 1 && (
+                  <button
+                    onClick={() => {
+                      const updated = teams.filter((t) => t.id !== activeTeam.id);
+                      saveTeamsToStorage(updated);
+                      setActiveTeamId(updated[0].id);
+                    }}
+                    className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs"
+                  >
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 )}
               </div>
@@ -635,7 +704,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           </div>
 
-          {/* Matriz de Tipos */}
+          {/* Matriz Defensiva de Tipos */}
           {coverageAnalysis && (
             <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
               <div className="flex items-center justify-between">
@@ -748,7 +817,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   className="relative w-full max-w-sm bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4 text-center"
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -792,7 +861,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   className="relative w-full max-w-lg bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4"
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -821,7 +890,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       Cancelar
                     </button>
                     <button
-                      onClick={() => importFromShowdownText(importText)}
+                      onClick={handleManualImport}
                       className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg shadow-purple-600/30 transition"
                     >
                       Cargar en Equipo
