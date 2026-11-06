@@ -10,10 +10,11 @@
     background-color: #070709;
     color: #ffffff;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100vh;
   }
 }
 
-/* Scrollbar personalizada sutil */
+/* Scrollbar personalizada */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
