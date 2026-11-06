@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
@@ -9,8 +11,8 @@
   body {
     background-color: #070709;
     color: #ffffff;
-    font-feature-settings: "rlig" 1, "calt" 1;
     min-height: 100vh;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
