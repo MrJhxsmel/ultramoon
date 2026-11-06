@@ -54,15 +54,12 @@ const CHANGELOG = [
       "PokéWiki / Búsqueda: Filtros dinámicos por Generación (Gen 1-9) y biomas de Minecraft.",
     ],
   },
-  {
+   {
     version: "v1.3.0",
-    date: "Última actualización",
+    date: "Versión previa",
     highlights: [
-      "Calculadora de Daño: Nuevo buscador dinámico predictivo sobre toda la Dex en vez de listas rígidas.",
-      "Calculadora de Daño: Soporte completo para Pantallas (Reflejo, Pantalla Luz, Velo Aurora), Climas y Terrenos.",
-      "Team Builder: Importador directo de equipos en formato oficial de Pokémon Showdown.",
-      "Crianza (Pasture): Inclusión de todos los Objetos Recios (Power Items) para herencia garantizada de IVs al 100%.",
-      "Guía de Apricorns: Crafteo oficial Cobblemon en Mesa 3x3 de Minecraft con sprites de Poké Balls de referencia.",
+      "Calculadora de Daño con buscador dinámico, pantallas y climas.",
+      "Crafteo visual de Poké Balls 3x3 oficial de Cobblemon con sprites de referencia.",
     ],
   },
   {
