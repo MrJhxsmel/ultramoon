@@ -11,6 +11,7 @@ import {
   Box,
   Copy,
   Check,
+  Search,
 } from "lucide-react";
 import type { PokemonData, MoveEntry, PokemonDrop } from "@/types/pokemon";
 
@@ -41,7 +42,6 @@ const TYPE_COLORS: Record<string, string> = {
   fairy: "bg-rose-400/20 text-rose-300 border-rose-400/30",
 };
 
-// Movimientos temáticos reales según el tipo del Pokémon
 const TYPE_REAL_MOVES: Record<string, MoveEntry[]> = {
   poison: [
     { name: "Picotazo Venenoso", type: "poison", category: "Physical", power: 15, accuracy: 100, pp: 35, learnMethod: "level", level: 1 },
@@ -49,7 +49,6 @@ const TYPE_REAL_MOVES: Record<string, MoveEntry[]> = {
     { name: "Tóxico", type: "poison", category: "Status", power: null, accuracy: 90, pp: 10, learnMethod: "level", level: 25 },
     { name: "Pulla Nociva", type: "poison", category: "Physical", power: 80, accuracy: 100, pp: 20, learnMethod: "tm" },
     { name: "Bomba Lodo", type: "poison", category: "Special", power: 90, accuracy: 100, pp: 10, learnMethod: "tm" },
-    { name: "Armadura Ácida", type: "poison", category: "Status", power: null, accuracy: null, pp: 20, learnMethod: "level", level: 40 },
   ],
   water: [
     { name: "Pistola Agua", type: "water", category: "Special", power: 40, accuracy: 100, pp: 25, learnMethod: "level", level: 1 },
@@ -57,12 +56,10 @@ const TYPE_REAL_MOVES: Record<string, MoveEntry[]> = {
     { name: "Recuperación", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "level", level: 35 },
     { name: "Escaldar (Scald)", type: "water", category: "Special", power: 80, accuracy: 100, pp: 15, learnMethod: "tm" },
     { name: "Hidrobomba", type: "water", category: "Special", power: 110, accuracy: 80, pp: 5, learnMethod: "tm" },
-    { name: "Niebla Haze", type: "ice", category: "Status", power: null, accuracy: null, pp: 30, learnMethod: "egg" },
   ],
   fire: [
     { name: "Ascuas", type: "fire", category: "Special", power: 40, accuracy: 100, pp: 25, learnMethod: "level", level: 1 },
     { name: "Giro Fuego", type: "fire", category: "Special", power: 35, accuracy: 85, pp: 15, learnMethod: "level", level: 12 },
-    { name: "Colmillo Ígneo", type: "fire", category: "Physical", power: 65, accuracy: 95, pp: 15, learnMethod: "level", level: 24 },
     { name: "Lanzallamas", type: "fire", category: "Special", power: 90, accuracy: 100, pp: 15, learnMethod: "tm" },
     { name: "Envite Ígneo", type: "fire", category: "Physical", power: 120, accuracy: 100, pp: 15, learnMethod: "tm" },
   ],
@@ -71,24 +68,15 @@ const TYPE_REAL_MOVES: Record<string, MoveEntry[]> = {
     { name: "Megaagotar", type: "grass", category: "Special", power: 40, accuracy: 100, pp: 15, learnMethod: "level", level: 16 },
     { name: "Drenadoras", type: "grass", category: "Status", power: null, accuracy: 90, pp: 10, learnMethod: "level", level: 28 },
     { name: "Energibola", type: "grass", category: "Special", power: 90, accuracy: 100, pp: 10, learnMethod: "tm" },
-    { name: "Latigazo", type: "grass", category: "Physical", power: 120, accuracy: 85, pp: 10, learnMethod: "egg" },
   ],
   electric: [
     { name: "Impactrueno", type: "electric", category: "Special", power: 40, accuracy: 100, pp: 30, learnMethod: "level", level: 1 },
     { name: "Onda Trueno", type: "electric", category: "Status", power: null, accuracy: 90, pp: 20, learnMethod: "level", level: 14 },
-    { name: "Chispazo", type: "electric", category: "Special", power: 80, accuracy: 100, pp: 15, learnMethod: "level", level: 34 },
     { name: "Rayo", type: "electric", power: 90, category: "Special", accuracy: 100, pp: 15, learnMethod: "tm" },
     { name: "Voltiocambio", type: "electric", power: 70, category: "Special", accuracy: 100, pp: 20, learnMethod: "tm" },
   ],
-  dragon: [
-    { name: "Furia Dragón", type: "dragon", category: "Special", power: 40, accuracy: 100, pp: 10, learnMethod: "level", level: 10 },
-    { name: "Garra Dragón", type: "dragon", category: "Physical", power: 80, accuracy: 100, pp: 15, learnMethod: "level", level: 30 },
-    { name: "Danza Dragón", type: "dragon", category: "Status", power: null, accuracy: null, pp: 20, learnMethod: "level", level: 45 },
-    { name: "Cometa Draco", type: "dragon", category: "Special", power: 130, accuracy: 90, pp: 5, learnMethod: "tm" },
-  ],
 };
 
-// Drops oficiales del mod Cobblemon según especie / tipos
 const COBBLEMON_DROPS_BY_TYPE: Record<string, PokemonDrop[]> = {
   poison: [
     { item: "Ojo de Araña Fermentado", percentage: 50, quantity: "1" },
@@ -153,7 +141,6 @@ export function PokemonDetailModal({
     currentStats.specialDefense +
     currentStats.speed;
 
-  // Carga inteligente de movimientos reales
   const dynamicMoves = useMemo(() => {
     if (pokemon.moves && pokemon.moves.length > 5) return pokemon.moves;
 
@@ -177,10 +164,8 @@ export function PokemonDetailModal({
     moveFilter === "all" ? true : m.learnMethod === moveFilter
   );
 
-  // Carga inteligente de drops Cobblemon auténticos
   const dynamicDrops = useMemo(() => {
     if (pokemon.drops && pokemon.drops.length > 0) return pokemon.drops;
-
     const primaryType = pokemon.types[0]?.toLowerCase() || "default";
     return COBBLEMON_DROPS_BY_TYPE[primaryType] || COBBLEMON_DROPS_BY_TYPE.default;
   }, [pokemon]);
@@ -246,10 +231,7 @@ export function PokemonDetailModal({
                 <span>{isShiny ? "Shiny Activo" : "Ver Shiny"}</span>
               </button>
 
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition"
-              >
+              <button onClick={onClose} className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -258,7 +240,6 @@ export function PokemonDetailModal({
           {/* Cuerpo */}
           <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-              {/* Ventana Pixel GIF */}
               <div className="md:col-span-5 relative rounded-2xl bg-gradient-to-b from-purple-900/20 via-zinc-900/40 to-zinc-950 border border-white/10 flex flex-col items-center justify-center p-6 min-h-[220px]">
                 <div
                   className={`absolute w-36 h-36 rounded-full blur-2xl opacity-40 pointer-events-none ${
@@ -338,38 +319,32 @@ export function PokemonDetailModal({
               </div>
             </div>
 
-            {/* Pestañas de Navegación */}
+            {/* Pestañas */}
             <div className="flex items-center gap-2 border-b border-white/10 pb-2">
               <button
                 onClick={() => setActiveTab("moves")}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === "moves"
-                    ? "bg-purple-500 text-white shadow-md shadow-purple-500/20"
-                    : "text-zinc-400 hover:text-white"
+                  activeTab === "moves" ? "bg-purple-500 text-white shadow-md shadow-purple-500/20" : "text-zinc-400 hover:text-white"
                 }`}
               >
                 <Swords className="w-3.5 h-3.5" />
-                <span>Movimientos Reales</span>
+                <span>Movimientos</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("stats")}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === "stats"
-                    ? "bg-purple-500 text-white shadow-md shadow-purple-500/20"
-                    : "text-zinc-400 hover:text-white"
+                  activeTab === "stats" ? "bg-purple-500 text-white shadow-md shadow-purple-500/20" : "text-zinc-400 hover:text-white"
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
-                <span>Estadísticas Detalladas</span>
+                <span>Estadísticas</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("drops")}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === "drops"
-                    ? "bg-purple-500 text-white shadow-md shadow-purple-500/20"
-                    : "text-zinc-400 hover:text-white"
+                  activeTab === "drops" ? "bg-purple-500 text-white shadow-md shadow-purple-500/20" : "text-zinc-400 hover:text-white"
                 }`}
               >
                 <Box className="w-3.5 h-3.5" />
@@ -377,7 +352,7 @@ export function PokemonDetailModal({
               </button>
             </div>
 
-            {/* Pestaña: Movimientos Reales */}
+            {/* Pestaña Movimientos */}
             {activeTab === "moves" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -388,9 +363,7 @@ export function PokemonDetailModal({
                         key={method}
                         onClick={() => setMoveFilter(method)}
                         className={`px-2.5 py-1 rounded-lg uppercase font-semibold transition ${
-                          moveFilter === method
-                            ? "bg-white/15 text-white"
-                            : "text-zinc-500 hover:text-zinc-300"
+                          moveFilter === method ? "bg-white/15 text-white" : "text-zinc-500 hover:text-zinc-300"
                         }`}
                       >
                         {method === "all" ? "Todos" : method}
@@ -430,7 +403,7 @@ export function PokemonDetailModal({
               </div>
             )}
 
-            {/* Pestaña: Estadísticas */}
+            {/* Pestaña Estadísticas */}
             {activeTab === "stats" && (
               <div className="space-y-3">
                 {[
@@ -455,11 +428,11 @@ export function PokemonDetailModal({
               </div>
             )}
 
-            {/* Pestaña: Drops Reales de Cobblemon */}
+            {/* Pestaña Drops */}
             {activeTab === "drops" && (
               <div className="space-y-2">
                 <span className="text-xs text-zinc-400 block mb-2">
-                  Objetos de Minecraft arrojados al atrapar o derrotar a {pokemon.name}:
+                  Objetos arrojados al atrapar o derrotar a {pokemon.name} en Cobblemon:
                 </span>
                 {dynamicDrops.map((d, i) => (
                   <div

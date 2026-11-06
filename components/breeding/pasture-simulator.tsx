@@ -9,8 +9,8 @@ import {
   Heart,
   Copy,
   Check,
-  Search,
   Terminal,
+  Dices,
   ShieldCheck,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
@@ -25,9 +25,9 @@ const ALL_POKEMON: PokemonData[] = (POKEDEX_DATA as unknown) as PokemonData[];
 
 const BREEDING_ITEMS = [
   { id: "none", name: "Sin objeto" },
-  { id: "destiny_knot", name: "Lazo Destino (Hereda 5 IVs de los padres)" },
+  { id: "destiny_knot", name: "Lazo Destino (Hereda 5 IVs de los padres)", ivCount: 5 },
   { id: "everstone", name: "Piedra Eterna (Hereda 100% la Naturaleza)" },
-  { id: "mirror_herb", name: "Hierba Copia (Transfiere Egg Moves)" },
+  { id: "mirror_herb", name: "Hierba Copia (Transfiere Egg Moves en Pasture)" },
   { id: "power_weight", name: "Pesa Recia (Hereda 100% IV HP)", stat: "hp" },
   { id: "power_bracer", name: "Brazal Recio (Hereda 100% IV Ataque)", stat: "attack" },
   { id: "power_belt", name: "Cinto Recio (Hereda 100% IV Defensa)", stat: "defense" },
@@ -36,25 +36,85 @@ const BREEDING_ITEMS = [
   { id: "power_anklet", name: "Franja Recia (Hereda 100% IV Velocidad)", stat: "speed" },
 ];
 
+interface SimulatedBaby {
+  id: number;
+  hp: number;
+  attack: number;
+  defense: number;
+  spAtk: number;
+  spDef: number;
+  speed: number;
+  perfectCount: number;
+  nature: string;
+}
+
 export function PastureSimulator({ isOpen, onClose }: PastureSimulatorProps) {
   const [parent1, setParent1] = useState<PokemonData>(ALL_POKEMON[0]);
   const [parent2, setParent2] = useState<PokemonData>(ALL_POKEMON[1] || ALL_POKEMON[0]);
 
   const [item1, setItem1] = useState("destiny_knot");
   const [item2, setItem2] = useState("everstone");
-
   const [copiedCommand, setCopiedCommand] = useState(false);
 
-  // Verificación de compatibilidad de grupo huevo
+  const [simulatedBabies, setSimulatedBabies] = useState<SimulatedBaby[]>([]);
+
   const isCompatible = useMemo(() => {
     if (parent1.id === parent2.id) return true;
     return parent1.eggGroups.some((g) => parent2.eggGroups.includes(g));
   }, [parent1, parent2]);
 
-  // Generador de comando /pokegive de cría
+  const hasDestinyKnot = item1 === "destiny_knot" || item2 === "destiny_knot";
+  const hasEverstone = item1 === "everstone" || item2 === "everstone";
+
+  // Probabilidad estimada de IVs perfectos (asumiendo padres 6x31)
+  const odds5IV = hasDestinyKnot ? "83.3%" : "18.8%";
+  const odds6IV = hasDestinyKnot ? "3.12% (1 en 32)" : "0.05%";
+
+  // Función para simular 5 crías reales en el Pasture
+  const handleSimulateBreed = () => {
+    const babies: SimulatedBaby[] = [];
+    const statsKeys = ["hp", "attack", "defense", "spAtk", "spDef", "speed"] as const;
+
+    for (let i = 1; i <= 5; i++) {
+      const inheritedCount = hasDestinyKnot ? 5 : 3;
+      const shuffledStats = [...statsKeys].sort(() => Math.random() - 0.5);
+      const inheritedSet = new Set(shuffledStats.slice(0, inheritedCount));
+
+      const babyStats: Record<string, number> = {};
+      let perfects = 0;
+
+      statsKeys.forEach((k) => {
+        if (inheritedSet.has(k)) {
+          // Hereda 31 de uno de los padres competitivos
+          babyStats[k] = 31;
+          perfects++;
+        } else {
+          // Mutación aleatoria entre 0 y 31
+          const rolled = Math.floor(Math.random() * 32);
+          babyStats[k] = rolled;
+          if (rolled === 31) perfects++;
+        }
+      });
+
+      babies.push({
+        id: i,
+        hp: babyStats.hp,
+        attack: babyStats.attack,
+        defense: babyStats.defense,
+        spAtk: babyStats.spAtk,
+        spDef: babyStats.spDef,
+        speed: babyStats.speed,
+        perfectCount: perfects,
+        nature: hasEverstone ? "Heredada (100%)" : "Aleatoria",
+      });
+    }
+
+    setSimulatedBabies(babies);
+  };
+
   const generatedGiveCommand = useMemo(() => {
     const babyName = parent2.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-    return `/pokegive @p ${babyName} level=1 ivs=31,31,31,31,31,31 shiny=false`;
+    return `/pokegive @p ${babyName} level=1 ivs=31,31,31,31,31,31 nature=jolly shiny=false`;
   }, [parent2]);
 
   if (!isOpen) return null;
@@ -85,7 +145,7 @@ export function PastureSimulator({ isOpen, onClose }: PastureSimulatorProps) {
               <div>
                 <h2 className="text-xl font-bold text-white">Pasture Block & Crianza</h2>
                 <p className="text-xs text-zinc-400">
-                  Simulación de herencia de IVs, Objetos Recios y comandos /pokegive
+                  Simulación de IVs heredados, Objetos Recios y comandos /pokegive
                 </p>
               </div>
             </div>
@@ -96,10 +156,9 @@ export function PastureSimulator({ isOpen, onClose }: PastureSimulatorProps) {
 
           {/* Progenitores */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Padre 1 */}
             <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] uppercase font-bold text-blue-400">Progenitor 1 (Macho / Base)</span>
+                <span className="text-[11px] uppercase font-bold text-blue-400">Padre 1</span>
                 <select
                   value={parent1.name}
                   onChange={(e) => {
@@ -125,7 +184,7 @@ export function PastureSimulator({ isOpen, onClose }: PastureSimulatorProps) {
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold text-zinc-400 block mb-1">Objeto Equipado:</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-400 block mb-1">Objeto:</span>
                 <select
                   value={item1}
                   onChange={(e) => setItem1(e.target.value)}
@@ -138,10 +197,9 @@ export function PastureSimulator({ isOpen, onClose }: PastureSimulatorProps) {
               </div>
             </div>
 
-            {/* Padre 2 */}
             <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] uppercase font-bold text-rose-400">Progenitor 2 (Hembra / Cría)</span>
+                <span className="text-[11px] uppercase font-bold text-rose-400">Padre 2 (Especie Cría)</span>
                 <select
                   value={parent2.name}
                   onChange={(e) => {
@@ -167,7 +225,7 @@ export function PastureSimulator({ isOpen, onClose }: PastureSimulatorProps) {
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold text-zinc-400 block mb-1">Objeto Equipado:</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-400 block mb-1">Objeto:</span>
                 <select
                   value={item2}
                   onChange={(e) => setItem2(e.target.value)}
@@ -181,40 +239,80 @@ export function PastureSimulator({ isOpen, onClose }: PastureSimulatorProps) {
             </div>
           </div>
 
-          {/* Estado de Compatibilidad y Cría */}
+          {/* Probabilidades de IVs */}
           <div className="p-4 rounded-2xl bg-zinc-900/70 border border-white/5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-white flex items-center gap-2">
-                <Heart className={`w-4 h-4 ${isCompatible ? "text-rose-400" : "text-zinc-600"}`} />
-                Resultado en Pasture Block:
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                Probabilidades Gen 9 (Padres competitivos):
               </span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
-                isCompatible
-                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                  : "bg-rose-500/20 text-rose-300 border-rose-500/30"
-              }`}>
-                {isCompatible ? "Compatibles (Genera Huevo)" : "Incompatibles (Grupos distintos)"}
-              </span>
-            </div>
-
-            {/* Comando /pokegive de Cría */}
-            <div className="pt-2 border-t border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-purple-400" />
-                <span className="text-xs text-zinc-300 font-mono">{generatedGiveCommand}</span>
-              </div>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedGiveCommand);
-                  setCopiedCommand(true);
-                  setTimeout(() => setCopiedCommand(false), 2000);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 shrink-0"
+                onClick={handleSimulateBreed}
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30"
               >
-                {copiedCommand ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedCommand ? "Copiado" : "Copiar Comando"}</span>
+                <Dices className="w-3.5 h-3.5" />
+                <span>Simular 5 Crías</span>
               </button>
             </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-zinc-950 border border-white/5">
+                <span className="text-zinc-500 block text-[10px]">Prob. 5 IVs (31):</span>
+                <span className="text-sm font-bold text-emerald-400 font-mono">{odds5IV}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-zinc-950 border border-white/5">
+                <span className="text-zinc-500 block text-[10px]">Prob. 6 IVs Perfectos:</span>
+                <span className="text-sm font-bold text-purple-300 font-mono">{odds6IV}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-zinc-950 border border-white/5 col-span-2 sm:col-span-1">
+                <span className="text-zinc-500 block text-[10px]">Habilidad Oculta:</span>
+                <span className="text-sm font-bold text-cyan-300 font-mono">60% si la madre la tiene</span>
+              </div>
+            </div>
+
+            {/* Crías simuladas generadas */}
+            {simulatedBabies.length > 0 && (
+              <div className="pt-2 border-t border-white/5 space-y-1.5">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  Resultados del Pasture Block simulado:
+                </span>
+                <div className="space-y-1 text-xs">
+                  {simulatedBabies.map((b) => (
+                    <div
+                      key={b.id}
+                      className="p-2 rounded-xl bg-zinc-950/80 border border-white/5 flex items-center justify-between text-[11px] font-mono"
+                    >
+                      <span className="text-purple-300 font-bold">Huevo #{b.id}</span>
+                      <span className="text-zinc-300">
+                        {b.hp}/{b.attack}/{b.defense}/{b.spAtk}/{b.spDef}/{b.speed}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                        {b.perfectCount} IVs perfectos
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Comando /pokegive */}
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-purple-400" />
+              <span className="text-xs text-zinc-300 font-mono">{generatedGiveCommand}</span>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(generatedGiveCommand);
+                setCopiedCommand(true);
+                setTimeout(() => setCopiedCommand(false), 2000);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 shrink-0"
+            >
+              {copiedCommand ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedCommand ? "Copiado" : "Copiar Comando"}</span>
+            </button>
           </div>
         </motion.div>
       </div>

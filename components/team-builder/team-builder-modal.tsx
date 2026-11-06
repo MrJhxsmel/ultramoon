@@ -22,6 +22,7 @@ import {
   FileText,
   Link,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
 import { PokemonData } from "@/types/pokemon";
@@ -82,6 +83,18 @@ const COMMON_NATURES = [
   "Timid", "Jolly", "Modest", "Adamant", "Bold", "Calm", "Impish", "Careful", "Brave", "Quiet"
 ];
 
+// Presets competitivos automáticos para agilizar armado de equipos
+const COMPETITIVE_PRESETS: Record<string, { item: string; nature: string; moves: [string, string, string, string] }> = {
+  garchomp: { item: "Life Orb", nature: "Jolly", moves: ["Earthquake", "Dragon Claw", "Swords Dance", "Protect"] },
+  toxapex: { item: "Leftovers", nature: "Bold", moves: ["Scald", "Toxic", "Recover", "Haze"] },
+  lucario: { item: "Focus Sash", nature: "Jolly", moves: ["Close Combat", "Meteor Mash", "Extreme Speed", "Swords Dance"] },
+  charizard: { item: "Choice Specs", nature: "Timid", moves: ["Flamethrower", "Air Slash", "Overheat", "Focus Blast"] },
+  venusaur: { item: "Life Orb", nature: "Modest", moves: ["Giga Drain", "Sludge Bomb", "Earth Power", "Sleep Powder"] },
+  blastoise: { item: "White Herb", nature: "Modest", moves: ["Shell Smash", "Hydro Pump", "Ice Beam", "Aura Sphere"] },
+  tyranitar: { item: "Choice Band", nature: "Adamant", moves: ["Stone Edge", "Crunch", "Earthquake", "Ice Punch"] },
+  dragapult: { item: "Choice Scarf", nature: "Timid", moves: ["Draco Meteor", "Shadow Ball", "U-turn", "Flamethrower"] },
+};
+
 const DEFAULT_TEAMS: SavedTeam[] = [
   { id: "default-team-1", name: "Equipo Principal VGC", pokemonList: [] },
 ];
@@ -104,26 +117,20 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   const [copiedShowdown, setCopiedShowdown] = useState(false);
   const [copiedCommands, setCopiedCommands] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-
-  // Notificación de nuevo equipo compartido recibido
   const [sharedToastMessage, setSharedToastMessage] = useState<string | null>(null);
 
-  // Inicialización y carga de enlaces compartidos
   useEffect(() => {
     let currentTeams: SavedTeam[] = DEFAULT_TEAMS;
     const saved = localStorage.getItem("ultramoon_teams");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          currentTeams = parsed;
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) currentTeams = parsed;
       } catch (e) {
         console.error(e);
       }
     }
 
-    // Verificar si hay equipo en la URL (?team=...)
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const urlTeam = params.get("team");
@@ -142,18 +149,16 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
 
             const updated = [newTeam, ...currentTeams];
             setTeams(updated);
-            setActiveTeamId(newTeamId); // Selecciona inmediatamente el nuevo equipo
+            setActiveTeamId(newTeamId);
             localStorage.setItem("ultramoon_teams", JSON.stringify(updated));
 
             setSharedToastMessage(`¡Equipo de ${parsedMembers.length} Pokémon recibido con éxito!`);
             setTimeout(() => setSharedToastMessage(null), 5000);
-
-            // Limpiar parámetro de URL para evitar duplicados al recargar
             window.history.replaceState({}, document.title, window.location.pathname);
             return;
           }
         } catch (e) {
-          console.error("Error al decodificar equipo de la URL", e);
+          console.error(e);
         }
       }
     }
@@ -198,12 +203,15 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
 
   const handleAddPokemon = (pokemon: PokemonData) => {
     if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
+    const cleanKey = pokemon.name.toLowerCase();
+    const preset = COMPETITIVE_PRESETS[cleanKey];
+
     const newMember: TeamMember = {
       ...pokemon,
       memberId: "m-" + Date.now() + Math.random(),
-      customItem: "Leftovers",
-      customNature: "Timid",
-      customMoves: ["Protect", "Substitute", "Tackle", "Rest"],
+      customItem: preset?.item || "Leftovers",
+      customNature: preset?.nature || "Timid",
+      customMoves: preset?.moves || ["Protect", "Substitute", "Tackle", "Rest"],
     };
 
     const updated = teams.map((t) => {
@@ -216,6 +224,27 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     saveTeamsToStorage(updated);
     setIsPickerOpen(false);
     setSearchQuery("");
+  };
+
+  const handleApplyPreset = (pokemonName: string) => {
+    if (!editingMember) return;
+    const cleanKey = pokemonName.toLowerCase();
+    const preset = COMPETITIVE_PRESETS[cleanKey];
+    if (preset) {
+      setEditingMember({
+        ...editingMember,
+        customItem: preset.item,
+        customNature: preset.nature,
+        customMoves: preset.moves,
+      });
+    } else {
+      setEditingMember({
+        ...editingMember,
+        customItem: "Life Orb",
+        customNature: "Jolly",
+        customMoves: ["Protect", "Earthquake", "Substitute", "Rest"],
+      });
+    }
   };
 
   const handleRemovePokemon = (memberId: string) => {
@@ -249,7 +278,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     setEditingMember(null);
   };
 
-  // Coberturas y debilidades
   const coverageAnalysis = useMemo(() => {
     if (!activeTeam || activeTeam.pokemonList.length === 0) return null;
 
@@ -277,7 +305,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     return { analysis, highVulnerabilities };
   }, [activeTeam]);
 
-  // Función de parseo Showdown
   function parseShowdown(rawText: string): TeamMember[] {
     const blocks = rawText.trim().split(/\n\s*\n/);
     const newMembers: TeamMember[] = [];
@@ -437,7 +464,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                   Team Builder & Gestor de Equipos
                 </h2>
                 <p className="text-xs text-zinc-400">
-                  Importación Showdown, enlace compartible, matriz de tipos y QR
+                  Presets Smogon, enlace compartible, matriz de tipos y QR
                 </p>
               </div>
             </div>
@@ -473,16 +500,13 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 <span>Importar</span>
               </button>
 
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition"
-              >
+              <button onClick={onClose} className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* BANNER DE NOTIFICACIÓN DE EQUIPO COMPARTIDO CARGADO */}
+          {/* Toast de confirmación */}
           {sharedToastMessage && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
@@ -491,14 +515,9 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             >
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-xs font-bold text-white">
-                  {sharedToastMessage}
-                </span>
+                <span className="text-xs font-bold text-white">{sharedToastMessage}</span>
               </div>
-              <button
-                onClick={() => setSharedToastMessage(null)}
-                className="text-zinc-400 hover:text-white text-xs px-2"
-              >
+              <button onClick={() => setSharedToastMessage(null)} className="text-zinc-400 hover:text-white text-xs px-2">
                 ✕
               </button>
             </motion.div>
@@ -571,10 +590,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setIsEditingName(true)}
-                    className="p-1.5 rounded-lg bg-zinc-950 border border-white/10 text-zinc-400 hover:text-white text-xs"
-                  >
+                  <button onClick={() => setIsEditingName(true)} className="p-1.5 rounded-lg bg-zinc-950 border border-white/10 text-zinc-400 hover:text-white text-xs">
                     <Edit2 className="w-3 h-3" />
                   </button>
                 )}
@@ -704,7 +720,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           </div>
 
-          {/* Matriz Defensiva de Tipos */}
+          {/* Matriz Defensiva */}
           {coverageAnalysis && (
             <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
               <div className="flex items-center justify-between">
@@ -802,106 +818,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           )}
 
-          {/* Modal QR Móvil */}
-          <AnimatePresence>
-            {isQrModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setIsQrModalOpen(false)}
-                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
-                />
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="relative w-full max-w-sm bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4 text-center"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                    <h3 className="text-sm font-bold text-white">Transferir a Celular</h3>
-                    <button onClick={() => setIsQrModalOpen(false)} className="text-zinc-400 hover:text-white">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner">
-                    <img src={qrCodeUrl} alt="QR Team" className="w-56 h-56 object-contain" />
-                  </div>
-
-                  <p className="text-xs text-zinc-400 leading-relaxed">
-                    Escanea este código con tu cámara para cargar tu equipo en el celular con un solo clic.
-                  </p>
-
-                  <button
-                    onClick={() => setIsQrModalOpen(false)}
-                    className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition"
-                  >
-                    Cerrar
-                  </button>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
-
-          {/* Modal de Importar Showdown */}
-          <AnimatePresence>
-            {isImportModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
-                />
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="relative w-full max-w-lg bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-purple-400" />
-                      <h3 className="text-sm font-bold text-white">Importar Formato Showdown</h3>
-                    </div>
-                    <button onClick={() => setIsImportModalOpen(false)} className="p-1 rounded-lg text-zinc-400 hover:text-white">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <textarea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    rows={8}
-                    placeholder={`Garchomp @ Life Orb\nAbility: Rough Skin\nEVs: 252 Atk / 4 SpD / 252 Spe\nJolly Nature\n- Earthquake\n- Outrage\n- Swords Dance\n- Protect`}
-                    className="w-full bg-zinc-950 border border-white/10 rounded-xl p-3 text-xs text-zinc-200 font-mono focus:outline-none focus:border-purple-400"
-                  />
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      onClick={() => setIsImportModalOpen(false)}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-zinc-300 font-semibold"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleManualImport}
-                      className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg shadow-purple-600/30 transition"
-                    >
-                      Cargar en Equipo
-                    </button>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
-
-          {/* Modal Edición de Pokémon */}
+          {/* Modal Edición de Pokémon con Presets Competitivos */}
           <AnimatePresence>
             {editingMember && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -929,6 +846,23 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     </div>
                     <button onClick={() => setEditingMember(null)} className="p-1.5 rounded-xl text-zinc-400 hover:text-white">
                       <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Botón de Autocompletado de Set Meta */}
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20">
+                    <div className="flex items-center gap-2">
+                      <Wand2 className="w-4 h-4 text-purple-400" />
+                      <div>
+                        <span className="text-xs font-bold text-white block">Preset Competitivo Recomendado</span>
+                        <span className="text-[10px] text-zinc-400">Carga el set óptimo Smogon/VGC con 1 clic</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleApplyPreset(editingMember.name)}
+                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white transition shadow-md shadow-purple-600/30"
+                    >
+                      Cargar Set
                     </button>
                   </div>
 
@@ -995,6 +929,105 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       className="px-4 py-1.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-xs text-white font-bold transition shadow-lg shadow-purple-500/20"
                     >
                       Guardar Cambios
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Modal QR */}
+          <AnimatePresence>
+            {isQrModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsQrModalOpen(false)}
+                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+                />
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1 }}
+                  className="relative w-full max-w-sm bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4 text-center"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                    <h3 className="text-sm font-bold text-white">Transferir a Celular</h3>
+                    <button onClick={() => setIsQrModalOpen(false)} className="text-zinc-400 hover:text-white">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner">
+                    <img src={qrCodeUrl} alt="QR Team" className="w-56 h-56 object-contain" />
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Escanea este código con tu cámara para cargar tu equipo en el celular con un solo clic.
+                  </p>
+
+                  <button
+                    onClick={() => setIsQrModalOpen(false)}
+                    className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition"
+                  >
+                    Cerrar
+                  </button>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Modal de Importar Showdown */}
+          <AnimatePresence>
+            {isImportModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+                />
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1 }}
+                  className="relative w-full max-w-lg bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-purple-400" />
+                      <h3 className="text-sm font-bold text-white">Importar Formato Showdown</h3>
+                    </div>
+                    <button onClick={() => setIsImportModalOpen(false)} className="p-1 rounded-lg text-zinc-400 hover:text-white">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <textarea
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    rows={8}
+                    placeholder={`Garchomp @ Life Orb\nAbility: Rough Skin\nEVs: 252 Atk / 4 SpD / 252 Spe\nJolly Nature\n- Earthquake\n- Outrage\n- Swords Dance\n- Protect`}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl p-3 text-xs text-zinc-200 font-mono focus:outline-none focus:border-purple-400"
+                  />
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      onClick={() => setIsImportModalOpen(false)}
+                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-zinc-300 font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleManualImport}
+                      className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg shadow-purple-600/30 transition"
+                    >
+                      Cargar en Equipo
                     </button>
                   </div>
                 </motion.div>

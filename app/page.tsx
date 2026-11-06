@@ -40,29 +40,30 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 import type { PokemonData } from "@/types/pokemon";
 
 // Versión del sistema
-const CURRENT_VERSION = "v1.5.0";
+const CURRENT_VERSION = "v1.6.0";
 
 const CHANGELOG = [
   {
-    version: "v1.5.0",
+    version: "v1.6.0",
     date: "Última versión",
     highlights: [
-      "PWA Instalable: Soporte nativo para agregar Ultramoon a la pantalla de inicio en Android y iOS.",
-      "Team Builder: Comparte y abre equipos al instante mediante Enlace Directo comprimido en URL.",
-      "Calculadora de Captura: Condiciones de cuevas (Y < 60), turnos y estados alterados matemáticos de Cobblemon.",
-      "PokéWiki: Movimientos oficiales por tipo (Nivel, MT, Huevo) y drops auténticos de Minecraft.",
-      "Guía de EVs: Calculadora exacta de Kills con objetos recios (+8) y Pokérus (×2).",
+      "Team Builder: Presets competitivos Smogon y VGC con 1 solo clic.",
+      "Crianza / Pasture: Simulador de IVs heredados en vivo y cálculo de probabilidades de 5 y 6 IVs.",
+      "Evoluciones Especiales: Guía adaptada a Cobblemon con bloques de Minecraft (Redstone, Hielo, Musgo) y regla de Amistad (220).",
+      "PokéWiki: Drops oficiales auténticos y movimientos reales por categoría (Nivel, MT, Huevo).",
+      "PWA & Enlaces Compartibles: Compatible con instalación en celular y compartir por URL única.",
     ],
   },
   {
-    version: "v1.4.0",
+    version: "v1.5.0",
     date: "Versión previa",
     highlights: [
-      "Team Builder: Matriz de cobertura y debilidades elementales de los 18 tipos.",
-      "Generador de QR Móvil para escanear y visualizar equipos en el celular.",
+      "PWA instalable y enlaces compartibles directos.",
+      "Calculadora de captura Cobblemon con condiciones de cueva y turnos.",
     ],
   },
 ];
+
 
 interface ToolModule {
   id: string;
