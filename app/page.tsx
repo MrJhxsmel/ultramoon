@@ -44,6 +44,17 @@ const CURRENT_VERSION = "v1.3.0";
 
 const CHANGELOG = [
   {
+    version: "v1.4.0",
+    date: "Hoy",
+    highlights: [
+      "Team Builder: Matriz de cobertura y debilidades elementales de los 18 tipos.",
+      "Team Builder: Generador de QR Móvil para transferir y ver equipos en el celular.",
+      "Guía de EVs: Calculadora exacta de Kills con soporte para Objetos Recios (+8) y Pokérus (x2).",
+      "Pasture Simulator: Inclusión de todos los Objetos Recios y generador de cría /pokegive.",
+      "PokéWiki / Búsqueda: Filtros dinámicos por Generación (Gen 1-9) y biomas de Minecraft.",
+    ],
+  },
+  {
     version: "v1.3.0",
     date: "Última actualización",
     highlights: [

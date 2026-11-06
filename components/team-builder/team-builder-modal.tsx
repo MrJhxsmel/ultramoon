@@ -14,11 +14,11 @@ import {
   Terminal,
   Edit2,
   Save,
-  Download,
   Upload,
   Sliders,
   QrCode,
-  Smartphone,
+  ShieldAlert,
+  ShieldCheck,
   FileText,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
@@ -44,39 +44,45 @@ interface TeamBuilderModalProps {
 
 const ALL_POKEMON: PokemonData[] = (POKEDEX_DATA as unknown) as PokemonData[];
 
+const ALL_TYPES = [
+  "Normal", "Fire", "Water", "Grass", "Electric", "Ice",
+  "Fighting", "Poison", "Ground", "Flying", "Psychic", "Bug",
+  "Rock", "Ghost", "Dragon", "Steel", "Dark", "Fairy"
+];
+
+// Tabla elemental estándar de efectividades (multiplicador defensivo)
+const TYPE_CHART: Record<string, Record<string, number>> = {
+  Normal: { Fighting: 2, Ghost: 0 },
+  Fire: { Water: 2, Ground: 2, Rock: 2, Fire: 0.5, Grass: 0.5, Ice: 0.5, Bug: 0.5, Steel: 0.5, Fairy: 0.5 },
+  Water: { Electric: 2, Grass: 2, Fire: 0.5, Water: 0.5, Ice: 0.5, Steel: 0.5 },
+  Grass: { Fire: 2, Ice: 2, Poison: 2, Flying: 2, Bug: 2, Water: 0.5, Electric: 0.5, Grass: 0.5, Ground: 0.5 },
+  Electric: { Ground: 2, Electric: 0.5, Flying: 0.5, Steel: 0.5 },
+  Ice: { Fire: 2, Fighting: 2, Rock: 2, Steel: 2, Ice: 0.5 },
+  Fighting: { Flying: 2, Psychic: 2, Fairy: 2, Bug: 0.5, Rock: 0.5, Dark: 0.5 },
+  Poison: { Ground: 2, Psychic: 2, Grass: 0.5, Fighting: 0.5, Poison: 0.5, Bug: 0.5, Fairy: 0.5 },
+  Ground: { Water: 2, Grass: 2, Ice: 2, Electric: 0, Poison: 0.5, Rock: 0.5 },
+  Flying: { Electric: 2, Ice: 2, Rock: 2, Ground: 0, Grass: 0.5, Fighting: 0.5, Bug: 0.5 },
+  Psychic: { Bug: 2, Ghost: 2, Dark: 2, Fighting: 0.5, Psychic: 0.5 },
+  Bug: { Fire: 2, Flying: 2, Rock: 2, Grass: 0.5, Fighting: 0.5, Ground: 0.5 },
+  Rock: { Water: 2, Grass: 2, Fighting: 2, Ground: 2, Steel: 2, Normal: 0.5, Fire: 0.5, Poison: 0.5, Flying: 0.5 },
+  Ghost: { Ghost: 2, Dark: 2, Normal: 0, Fighting: 0, Poison: 0.5, Bug: 0.5 },
+  Dragon: { Ice: 2, Dragon: 2, Fairy: 2, Fire: 0.5, Water: 0.5, Electric: 0.5, Grass: 0.5 },
+  Steel: { Fire: 2, Fighting: 2, Ground: 2, Poison: 0, Normal: 0.5, Grass: 0.5, Ice: 0.5, Flying: 0.5, Psychic: 0.5, Bug: 0.5, Rock: 0.5, Dragon: 0.5, Steel: 0.5, Fairy: 0.5 },
+  Dark: { Fighting: 2, Bug: 2, Fairy: 2, Psychic: 0, Ghost: 0.5, Dark: 0.5 },
+  Fairy: { Poison: 2, Steel: 2, Dragon: 0, Fighting: 0.5, Bug: 0.5, Dark: 0.5 },
+};
+
 const COMMON_ITEMS = [
-  "Leftovers",
-  "Life Orb",
-  "Focus Sash",
-  "Assault Vest",
-  "Choice Band",
-  "Choice Specs",
-  "Choice Scarf",
-  "Heavy-Duty Boots",
-  "Rocky Helmet",
-  "Eviolite",
-  "Sitrus Berry",
+  "Leftovers", "Life Orb", "Focus Sash", "Assault Vest", "Choice Band",
+  "Choice Specs", "Choice Scarf", "Heavy-Duty Boots", "Rocky Helmet", "Eviolite", "Sitrus Berry"
 ];
 
 const COMMON_NATURES = [
-  "Timid",
-  "Jolly",
-  "Modest",
-  "Adamant",
-  "Bold",
-  "Calm",
-  "Impish",
-  "Careful",
-  "Brave",
-  "Quiet",
+  "Timid", "Jolly", "Modest", "Adamant", "Bold", "Calm", "Impish", "Careful", "Brave", "Quiet"
 ];
 
 const DEFAULT_TEAMS: SavedTeam[] = [
-  {
-    id: "default-team-1",
-    name: "Equipo Principal VGC",
-    pokemonList: [],
-  },
+  { id: "default-team-1", name: "Equipo Principal VGC", pokemonList: [] },
 ];
 
 export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
@@ -89,7 +95,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -108,7 +113,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
           setActiveTeamId(parsed[0].id);
         }
       } catch (e) {
-        console.error("Error al cargar equipos", e);
+        console.error(e);
       }
     }
   }, []);
@@ -123,9 +128,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   }, [teams, activeTeamId]);
 
   useEffect(() => {
-    if (activeTeam) {
-      setTeamNameInput(activeTeam.name);
-    }
+    if (activeTeam) setTeamNameInput(activeTeam.name);
   }, [activeTeam]);
 
   useEffect(() => {
@@ -139,7 +142,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   }, []);
 
   const availablePokemon = useMemo(() => {
-    if (!searchQuery.trim()) return ALL_POKEMON.slice(0, 35);
+    if (!searchQuery.trim()) return ALL_POKEMON.slice(0, 30);
     const q = searchQuery.toLowerCase();
     return ALL_POKEMON.filter(
       (p) =>
@@ -202,40 +205,38 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     setEditingMember(null);
   };
 
-  const handleCreateNewTeam = () => {
-    const newTeam: SavedTeam = {
-      id: "team-" + Date.now(),
-      name: `Equipo ${teams.length + 1}`,
-      pokemonList: [],
-    };
-    const updated = [...teams, newTeam];
-    saveTeamsToStorage(updated);
-    setActiveTeamId(newTeam.id);
-  };
+  // Cálculo de Matriz de Cobertura y Debilidades de los 18 tipos
+  const coverageAnalysis = useMemo(() => {
+    if (!activeTeam || activeTeam.pokemonList.length === 0) return null;
 
-  const handleDeleteTeam = (id: string) => {
-    if (teams.length <= 1) return;
-    const updated = teams.filter((t) => t.id !== id);
-    saveTeamsToStorage(updated);
-    setActiveTeamId(updated[0].id);
-  };
-
-  const handleSaveTeamName = () => {
-    if (!teamNameInput.trim() || !activeTeam) return;
-    const updated = teams.map((t) => {
-      if (t.id === activeTeam.id) {
-        return { ...t, name: teamNameInput.trim() };
-      }
-      return t;
+    const analysis: Record<string, { weak: number; resist: number; immune: number }> = {};
+    ALL_TYPES.forEach((t) => {
+      analysis[t] = { weak: 0, resist: 0, immune: 0 };
     });
-    saveTeamsToStorage(updated);
-    setIsEditingName(false);
-  };
 
-  // Parser de Showdown
+    activeTeam.pokemonList.forEach((member) => {
+      ALL_TYPES.forEach((attackType) => {
+        let mult = 1;
+        member.types.forEach((defType) => {
+          const capDef = defType.charAt(0).toUpperCase() + defType.slice(1).toLowerCase();
+          const effect = TYPE_CHART[capDef]?.[attackType];
+          if (effect !== undefined) mult *= effect;
+        });
+
+        if (mult > 1) analysis[attackType].weak += 1;
+        else if (mult === 0) analysis[attackType].immune += 1;
+        else if (mult < 1) analysis[attackType].resist += 1;
+      });
+    });
+
+    const highVulnerabilities = Object.entries(analysis).filter(([_, data]) => data.weak >= 3);
+
+    return { analysis, highVulnerabilities };
+  }, [activeTeam]);
+
+  // Importador Showdown
   const handleImportShowdown = () => {
     if (!importText.trim()) return;
-
     const blocks = importText.trim().split(/\n\s*\n/);
     const newMembers: TeamMember[] = [];
 
@@ -337,52 +338,58 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       .join("\n");
   }, [activeTeam]);
 
+  // Enlace codificado para abrir en el celular vía QR
   const qrCodeUrl = useMemo(() => {
-    if (!activeTeam) return "";
-    const summary = activeTeam.pokemonList
-      .map((p) => `${p.name} (@${p.customItem || "Leftovers"})`)
-      .join(", ");
-    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-      `Equipo: ${activeTeam.name}\n${summary}`
-    )}`;
-  }, [activeTeam]);
+    if (!activeTeam || activeTeam.pokemonList.length === 0) return "";
+    const teamPayload = encodeURIComponent(exportShowdownText);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${teamPayload}`;
+  }, [activeTeam, exportShowdownText]);
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/80 z-40"
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-40"
         />
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.98, y: 8 }}
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 1, y: 0 }}
-          className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-zinc-950 border border-white/[0.08] rounded-3xl shadow-2xl z-50 p-6 sm:p-8 space-y-6"
+          className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-zinc-950 border border-white/10 rounded-3xl shadow-2xl z-50 p-6 sm:p-8 space-y-6 custom-scrollbar"
         >
           {/* Header */}
-          <div className="flex items-center justify-between pb-5 border-b border-white/[0.08]">
+          <div className="flex items-center justify-between pb-4 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
                 <Users className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold font-['Space_Grotesk',sans-serif] text-white">
+                <h2 className="text-xl font-bold text-white">
                   Team Builder & Gestor de Equipos
                 </h2>
                 <p className="text-xs text-zinc-400">
-                  Importa de Showdown, exporta a Minecraft y organiza tus cajas
+                  Importación Showdown, análisis de cobertura y transferencia móvil por QR
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsQrModalOpen(true)}
+                disabled={!activeTeam || activeTeam.pokemonList.length === 0}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-xs font-semibold text-indigo-300 transition flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">QR Móvil</span>
+              </button>
+
               <button
                 onClick={() => setIsImportModalOpen(true)}
                 className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-xs font-semibold text-purple-300 transition flex items-center gap-1.5"
@@ -393,15 +400,15 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
 
               <button
                 onClick={onClose}
-                className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/[0.06] transition"
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* Cajas y Equipos */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+          {/* Selector de Cajas */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-white/5">
             <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
               {teams.map((t) => (
                 <button
@@ -413,19 +420,27 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition shrink-0 flex items-center gap-2 ${
                     t.id === activeTeamId
                       ? "bg-purple-500 text-white font-bold shadow-lg shadow-purple-500/20"
-                      : "bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white"
+                      : "bg-zinc-950 border border-white/5 text-zinc-400 hover:text-white"
                   }`}
                 >
                   <span>{t.name}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/30">
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40">
                     {t.pokemonList.length}/6
                   </span>
                 </button>
               ))}
 
               <button
-                onClick={handleCreateNewTeam}
-                className="px-2.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-white/10 text-xs text-zinc-300 transition flex items-center gap-1 shrink-0"
+                onClick={() => {
+                  const newTeam: SavedTeam = {
+                    id: "team-" + Date.now(),
+                    name: `Equipo ${teams.length + 1}`,
+                    pokemonList: [],
+                  };
+                  saveTeamsToStorage([...teams, newTeam]);
+                  setActiveTeamId(newTeam.id);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-300 transition flex items-center gap-1 shrink-0"
               >
                 <Plus className="w-3.5 h-3.5 text-purple-400" />
                 <span>Nuevo Equipo</span>
@@ -440,12 +455,20 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       type="text"
                       value={teamNameInput}
                       onChange={(e) => setTeamNameInput(e.target.value)}
-                      className="bg-zinc-900 border border-purple-500/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none w-36"
+                      className="bg-zinc-950 border border-purple-500/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none w-36"
                       autoFocus
                     />
                     <button
-                      onClick={handleSaveTeamName}
-                      className="p-1 rounded bg-purple-500 text-white hover:bg-purple-600"
+                      onClick={() => {
+                        if (!teamNameInput.trim()) return;
+                        saveTeamsToStorage(
+                          teams.map((t) =>
+                            t.id === activeTeam.id ? { ...t, name: teamNameInput.trim() } : t
+                          )
+                        );
+                        setIsEditingName(false);
+                      }}
+                      className="p-1 rounded bg-purple-500 text-white"
                     >
                       <Save className="w-3.5 h-3.5" />
                     </button>
@@ -453,25 +476,16 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 ) : (
                   <button
                     onClick={() => setIsEditingName(true)}
-                    className="p-1.5 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white text-xs flex items-center gap-1"
+                    className="p-1.5 rounded-lg bg-zinc-950 border border-white/10 text-zinc-400 hover:text-white text-xs"
                   >
                     <Edit2 className="w-3 h-3" />
-                  </button>
-                )}
-
-                {teams.length > 1 && (
-                  <button
-                    onClick={() => handleDeleteTeam(activeTeam.id)}
-                    className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs"
-                  >
-                    <Trash2 className="w-3 h-3" />
                   </button>
                 )}
               </div>
             )}
           </div>
 
-          {/* Slots 6 Pokémon */}
+          {/* Grilla 6 Pokémon */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
@@ -485,7 +499,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-semibold transition flex items-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Añadir de la Pokédex ({ALL_POKEMON.length})</span>
+                    <span>Añadir Pokémon</span>
                   </button>
 
                   <AnimatePresence>
@@ -502,7 +516,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Buscar entre todos los Pokémon..."
+                            placeholder="Buscar en la Dex..."
                             autoFocus
                             className="w-full bg-zinc-950 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400"
                           />
@@ -515,18 +529,10 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                               className="w-full p-2 rounded-xl flex items-center justify-between text-left hover:bg-white/[0.06] text-zinc-300 transition"
                             >
                               <div className="flex items-center gap-2 truncate">
-                                <img
-                                  src={p.sprite}
-                                  alt={p.name}
-                                  className="w-7 h-7 object-contain"
-                                />
-                                <span className="text-xs font-bold text-white truncate">
-                                  {p.name}
-                                </span>
+                                <img src={p.sprite} alt={p.name} className="w-7 h-7 object-contain" />
+                                <span className="text-xs font-bold text-white truncate">{p.name}</span>
                               </div>
-                              <span className="text-[10px] text-zinc-500 font-mono">
-                                #{p.id}
-                              </span>
+                              <span className="text-[10px] text-zinc-500 font-mono">#{p.id}</span>
                             </button>
                           ))}
                         </div>
@@ -548,7 +554,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       className="h-28 rounded-2xl border border-dashed border-white/10 bg-white/[0.01] flex flex-col items-center justify-center text-zinc-600 gap-1"
                     >
                       <span className="text-xs font-mono">Slot #{idx + 1}</span>
-                      <span className="text-[10px] text-zinc-600">Vacío</span>
+                      <span className="text-[10px]">Vacío</span>
                     </div>
                   );
                 }
@@ -557,24 +563,16 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                   <div
                     key={member.memberId}
                     onClick={() => setEditingMember(member)}
-                    className="p-3.5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] hover:border-purple-500/40 transition flex items-center justify-between gap-3 relative cursor-pointer group"
+                    className="p-3.5 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-white/5 hover:border-purple-500/40 transition flex items-center justify-between gap-3 relative cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={member.sprite}
-                        alt={member.name}
-                        className="w-12 h-12 object-contain shrink-0 drop-shadow"
-                      />
+                      <img src={member.sprite} alt={member.name} className="w-12 h-12 object-contain shrink-0 drop-shadow" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-white truncate">
-                            {member.name}
-                          </span>
+                          <span className="text-xs font-bold text-white truncate">{member.name}</span>
                           <Sliders className="w-3 h-3 text-purple-400 opacity-0 group-hover:opacity-100 transition" />
                         </div>
-                        <span className="text-[9px] text-amber-300 font-mono block">
-                          @{member.customItem || "Leftovers"}
-                        </span>
+                        <span className="text-[9px] text-amber-300 font-mono block">@{member.customItem || "Leftovers"}</span>
                         <span className="text-[10px] font-mono text-zinc-400 mt-0.5 block truncate">
                           {member.customMoves?.slice(0, 2).join(", ")}...
                         </span>
@@ -596,14 +594,63 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           </div>
 
+          {/* MATRIZ DE COBERTURA Y DEBILIDADES ELEMENTALES */}
+          {coverageAnalysis && (
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-purple-400" />
+                  Matriz Defensiva de Tipos (18 Tipos)
+                </span>
+                {coverageAnalysis.highVulnerabilities.length > 0 && (
+                  <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    {coverageAnalysis.highVulnerabilities.length} debilidades compartidas (≥3)
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-1.5 text-center">
+                {ALL_TYPES.map((t) => {
+                  const data = coverageAnalysis.analysis[t];
+                  const isHighWeak = data.weak >= 3;
+                  return (
+                    <div
+                      key={t}
+                      className={`p-2 rounded-xl border transition ${
+                        isHighWeak
+                          ? "bg-rose-500/20 border-rose-500/50"
+                          : data.resist > data.weak
+                          ? "bg-emerald-500/10 border-emerald-500/20"
+                          : "bg-zinc-950 border-white/5"
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">
+                        {t}
+                      </span>
+                      <div className="flex items-center justify-center gap-1.5 mt-1 text-[11px] font-mono">
+                        <span className={data.weak > 0 ? "text-rose-400 font-bold" : "text-zinc-600"}>
+                          -{data.weak}
+                        </span>
+                        <span className={data.resist > 0 ? "text-emerald-400 font-bold" : "text-zinc-600"}>
+                          +{data.resist + data.immune}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Exportaciones Showdown & /pokegive */}
           {activeTeam && activeTeam.pokemonList.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/[0.06]">
-              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/[0.06] space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/5">
+              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white flex items-center gap-1.5">
                     <BookOpen className="w-3.5 h-3.5 text-blue-400" />
-                    Formato Pokémon Showdown
+                    Formato Showdown
                   </span>
                   <button
                     onClick={() => {
@@ -621,12 +668,12 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     {copiedShowdown ? "Copiado" : "Copiar"}
                   </button>
                 </div>
-                <pre className="text-[10px] font-mono text-zinc-400 bg-zinc-950 p-2.5 rounded-xl max-h-28 overflow-y-auto custom-scrollbar border border-white/5">
+                <pre className="text-[10px] font-mono text-zinc-400 bg-zinc-950 p-2.5 rounded-xl max-h-24 overflow-y-auto custom-scrollbar border border-white/5">
                   {exportShowdownText}
                 </pre>
               </div>
 
-              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/[0.06] space-y-2">
+              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white flex items-center gap-1.5">
                     <Terminal className="w-3.5 h-3.5 text-amber-400" />
@@ -648,12 +695,56 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     {copiedCommands ? "Copiado" : "Copiar"}
                   </button>
                 </div>
-                <pre className="text-[10px] font-mono text-zinc-400 bg-zinc-950 p-2.5 rounded-xl max-h-28 overflow-y-auto custom-scrollbar border border-white/5">
+                <pre className="text-[10px] font-mono text-zinc-400 bg-zinc-950 p-2.5 rounded-xl max-h-24 overflow-y-auto custom-scrollbar border border-white/5">
                   {exportMinecraftCommands}
                 </pre>
               </div>
             </div>
           )}
+
+          {/* MODAL QR MÓVIL FUNCIONAL */}
+          <AnimatePresence>
+            {isQrModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsQrModalOpen(false)}
+                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+                />
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="relative w-full max-w-sm bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4 text-center"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                    <h3 className="text-sm font-bold text-white">Transferir a Celular</h3>
+                    <button onClick={() => setIsQrModalOpen(false)} className="text-zinc-400 hover:text-white">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner">
+                    <img src={qrCodeUrl} alt="QR Team" className="w-56 h-56 object-contain" />
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Escanea este código con la cámara de tu celular para abrir el formato Showdown de tu equipo al instante.
+                  </p>
+
+                  <button
+                    onClick={() => setIsQrModalOpen(false)}
+                    className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition"
+                  >
+                    Cerrar
+                  </button>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {/* Modal de Importar Showdown */}
           <AnimatePresence>
@@ -686,10 +777,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     </button>
                   </div>
 
-                  <p className="text-xs text-zinc-400">
-                    Pega tu equipo de Pokémon Showdown. Detectará nombres, objetos, naturalezas y movimientos automáticamente:
-                  </p>
-
                   <textarea
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
@@ -717,7 +804,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             )}
           </AnimatePresence>
 
-          {/* Modal Personalización Pokémon */}
+          {/* Modal Edición de Pokémon */}
           <AnimatePresence>
             {editingMember && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -737,11 +824,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 >
                   <div className="flex items-center justify-between pb-3 border-b border-white/10">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={editingMember.sprite}
-                        alt={editingMember.name}
-                        className="w-10 h-10 object-contain"
-                      />
+                      <img src={editingMember.sprite} alt={editingMember.name} className="w-10 h-10 object-contain" />
                       <div>
                         <h3 className="text-base font-bold text-white">
                           Personalizar {editingMember.name}
@@ -751,89 +834,53 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                         </span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setEditingMember(null)}
-                      className="p-1.5 rounded-xl text-zinc-400 hover:text-white"
-                    >
+                    <button onClick={() => setEditingMember(null)} className="p-1.5 rounded-xl text-zinc-400 hover:text-white">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-1">
-                        Objeto:
-                      </span>
+                      <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-1">Objeto:</span>
                       <select
                         value={editingMember.customItem || "Leftovers"}
-                        onChange={(e) =>
-                          setEditingMember({
-                            ...editingMember,
-                            customItem: e.target.value,
-                          })
-                        }
+                        onChange={(e) => setEditingMember({ ...editingMember, customItem: e.target.value })}
                         className="w-full bg-zinc-950 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none"
                       >
                         {COMMON_ITEMS.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
+                          <option key={item} value={item}>{item}</option>
                         ))}
                       </select>
                     </div>
 
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-1">
-                        Naturaleza:
-                      </span>
+                      <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-1">Naturaleza:</span>
                       <select
                         value={editingMember.customNature || "Timid"}
-                        onChange={(e) =>
-                          setEditingMember({
-                            ...editingMember,
-                            customNature: e.target.value,
-                          })
-                        }
+                        onChange={(e) => setEditingMember({ ...editingMember, customNature: e.target.value })}
                         className="w-full bg-zinc-950 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none"
                       >
                         {COMMON_NATURES.map((nat) => (
-                          <option key={nat} value={nat}>
-                            {nat}
-                          </option>
+                          <option key={nat} value={nat}>{nat}</option>
                         ))}
                       </select>
                     </div>
                   </div>
 
                   <div className="space-y-2 pt-2">
-                    <span className="text-[10px] uppercase font-bold text-zinc-500 block">
-                      Moveset (4 Ataques):
-                    </span>
+                    <span className="text-[10px] uppercase font-bold text-zinc-500 block">Moveset (4 Ataques):</span>
                     <div className="grid grid-cols-2 gap-2">
                       {[0, 1, 2, 3].map((moveIdx) => {
-                        const moves = editingMember.customMoves || [
-                          "Protect",
-                          "Substitute",
-                          "Tackle",
-                          "Rest",
-                        ];
+                        const moves = editingMember.customMoves || ["Protect", "Substitute", "Tackle", "Rest"];
                         return (
                           <input
                             key={moveIdx}
                             type="text"
                             value={moves[moveIdx]}
                             onChange={(e) => {
-                              const newMoves = [...moves] as [
-                                string,
-                                string,
-                                string,
-                                string
-                              ];
+                              const newMoves = [...moves] as [string, string, string, string];
                               newMoves[moveIdx] = e.target.value;
-                              setEditingMember({
-                                ...editingMember,
-                                customMoves: newMoves,
-                              });
+                              setEditingMember({ ...editingMember, customMoves: newMoves });
                             }}
                             placeholder={`Movimiento #${moveIdx + 1}`}
                             className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400"
