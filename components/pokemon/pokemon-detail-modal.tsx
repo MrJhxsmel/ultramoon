@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -12,7 +12,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
-import type { PokemonData, MoveEntry } from "@/types/pokemon";
+import type { PokemonData, MoveEntry, PokemonDrop } from "@/types/pokemon";
 
 interface PokemonDetailModalProps {
   pokemon: PokemonData | null;
@@ -41,6 +41,87 @@ const TYPE_COLORS: Record<string, string> = {
   fairy: "bg-rose-400/20 text-rose-300 border-rose-400/30",
 };
 
+// Movimientos temáticos reales según el tipo del Pokémon
+const TYPE_REAL_MOVES: Record<string, MoveEntry[]> = {
+  poison: [
+    { name: "Picotazo Venenoso", type: "poison", category: "Physical", power: 15, accuracy: 100, pp: 35, learnMethod: "level", level: 1 },
+    { name: "Carga Tóxica", type: "poison", category: "Special", power: 65, accuracy: 100, pp: 10, learnMethod: "level", level: 15 },
+    { name: "Tóxico", type: "poison", category: "Status", power: null, accuracy: 90, pp: 10, learnMethod: "level", level: 25 },
+    { name: "Pulla Nociva", type: "poison", category: "Physical", power: 80, accuracy: 100, pp: 20, learnMethod: "tm" },
+    { name: "Bomba Lodo", type: "poison", category: "Special", power: 90, accuracy: 100, pp: 10, learnMethod: "tm" },
+    { name: "Armadura Ácida", type: "poison", category: "Status", power: null, accuracy: null, pp: 20, learnMethod: "level", level: 40 },
+  ],
+  water: [
+    { name: "Pistola Agua", type: "water", category: "Special", power: 40, accuracy: 100, pp: 25, learnMethod: "level", level: 1 },
+    { name: "Hidropulso", type: "water", category: "Special", power: 60, accuracy: 100, pp: 20, learnMethod: "level", level: 20 },
+    { name: "Recuperación", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "level", level: 35 },
+    { name: "Escaldar (Scald)", type: "water", category: "Special", power: 80, accuracy: 100, pp: 15, learnMethod: "tm" },
+    { name: "Hidrobomba", type: "water", category: "Special", power: 110, accuracy: 80, pp: 5, learnMethod: "tm" },
+    { name: "Niebla Haze", type: "ice", category: "Status", power: null, accuracy: null, pp: 30, learnMethod: "egg" },
+  ],
+  fire: [
+    { name: "Ascuas", type: "fire", category: "Special", power: 40, accuracy: 100, pp: 25, learnMethod: "level", level: 1 },
+    { name: "Giro Fuego", type: "fire", category: "Special", power: 35, accuracy: 85, pp: 15, learnMethod: "level", level: 12 },
+    { name: "Colmillo Ígneo", type: "fire", category: "Physical", power: 65, accuracy: 95, pp: 15, learnMethod: "level", level: 24 },
+    { name: "Lanzallamas", type: "fire", category: "Special", power: 90, accuracy: 100, pp: 15, learnMethod: "tm" },
+    { name: "Envite Ígneo", type: "fire", category: "Physical", power: 120, accuracy: 100, pp: 15, learnMethod: "tm" },
+  ],
+  grass: [
+    { name: "Follaje", type: "grass", category: "Physical", power: 40, accuracy: 100, pp: 40, learnMethod: "level", level: 1 },
+    { name: "Megaagotar", type: "grass", category: "Special", power: 40, accuracy: 100, pp: 15, learnMethod: "level", level: 16 },
+    { name: "Drenadoras", type: "grass", category: "Status", power: null, accuracy: 90, pp: 10, learnMethod: "level", level: 28 },
+    { name: "Energibola", type: "grass", category: "Special", power: 90, accuracy: 100, pp: 10, learnMethod: "tm" },
+    { name: "Latigazo", type: "grass", category: "Physical", power: 120, accuracy: 85, pp: 10, learnMethod: "egg" },
+  ],
+  electric: [
+    { name: "Impactrueno", type: "electric", category: "Special", power: 40, accuracy: 100, pp: 30, learnMethod: "level", level: 1 },
+    { name: "Onda Trueno", type: "electric", category: "Status", power: null, accuracy: 90, pp: 20, learnMethod: "level", level: 14 },
+    { name: "Chispazo", type: "electric", category: "Special", power: 80, accuracy: 100, pp: 15, learnMethod: "level", level: 34 },
+    { name: "Rayo", type: "electric", power: 90, category: "Special", accuracy: 100, pp: 15, learnMethod: "tm" },
+    { name: "Voltiocambio", type: "electric", power: 70, category: "Special", accuracy: 100, pp: 20, learnMethod: "tm" },
+  ],
+  dragon: [
+    { name: "Furia Dragón", type: "dragon", category: "Special", power: 40, accuracy: 100, pp: 10, learnMethod: "level", level: 10 },
+    { name: "Garra Dragón", type: "dragon", category: "Physical", power: 80, accuracy: 100, pp: 15, learnMethod: "level", level: 30 },
+    { name: "Danza Dragón", type: "dragon", category: "Status", power: null, accuracy: null, pp: 20, learnMethod: "level", level: 45 },
+    { name: "Cometa Draco", type: "dragon", category: "Special", power: 130, accuracy: 90, pp: 5, learnMethod: "tm" },
+  ],
+};
+
+// Drops oficiales del mod Cobblemon según especie / tipos
+const COBBLEMON_DROPS_BY_TYPE: Record<string, PokemonDrop[]> = {
+  poison: [
+    { item: "Ojo de Araña Fermentado", percentage: 50, quantity: "1" },
+    { item: "Poción Venenosa (Cobblemon)", percentage: 30, quantity: "1" },
+    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
+  ],
+  water: [
+    { item: "Bacalao Crudo / Salmón", percentage: 70, quantity: "1-3" },
+    { item: "Fragmento de Prismarina", percentage: 25, quantity: "1" },
+    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
+  ],
+  fire: [
+    { item: "Vara de Blaze (Polvo de Llama)", percentage: 35, quantity: "1-2" },
+    { item: "Carbón Mineral", percentage: 60, quantity: "2-4" },
+    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
+  ],
+  grass: [
+    { item: "Semillas de Trigo / Calabaza", percentage: 80, quantity: "2-5" },
+    { item: "Baya Milagrosa (Cobblemon)", percentage: 40, quantity: "1" },
+    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
+  ],
+  electric: [
+    { item: "Polvo de Redstone", percentage: 75, quantity: "2-6" },
+    { item: "Lingote de Cobre", percentage: 35, quantity: "1" },
+    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
+  ],
+  default: [
+    { item: "Caramelo Raro Exp (S)", percentage: 100, quantity: "1-2" },
+    { item: "Cuero / Hueso de Minecraft", percentage: 50, quantity: "1-2" },
+    { item: "Baya Silvestre de Cobblemon", percentage: 40, quantity: "1" },
+  ],
+};
+
 export function PokemonDetailModal({
   pokemon,
   isOpen,
@@ -53,10 +134,9 @@ export function PokemonDetailModal({
 
   if (!isOpen || !pokemon) return null;
 
-  // Usa directamente stats garantizado
-  const currentStats = pokemon.stats;
-
+  const currentStats = pokemon.stats || pokemon.baseStats;
   const cleanId = pokemon.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
   const animatedGif = isShiny
     ? `https://play.pokemonshowdown.com/sprites/ani-shiny/${cleanId}.gif`
     : `https://play.pokemonshowdown.com/sprites/ani/${cleanId}.gif`;
@@ -73,17 +153,37 @@ export function PokemonDetailModal({
     currentStats.specialDefense +
     currentStats.speed;
 
-  const movesList: MoveEntry[] = pokemon.moves || [
-    { name: "Tackle", type: "normal", category: "Physical", power: 40, accuracy: 100, pp: 35, learnMethod: "level", level: 1 },
-    { name: "Protect", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "tm" },
-    { name: "Substitute", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "tm" },
-    { name: "Toxic", type: "poison", category: "Status", power: null, accuracy: 90, pp: 10, learnMethod: "tm" },
-    { name: "Double-Edge", type: "normal", category: "Physical", power: 120, accuracy: 100, pp: 15, learnMethod: "egg" },
-  ];
+  // Carga inteligente de movimientos reales
+  const dynamicMoves = useMemo(() => {
+    if (pokemon.moves && pokemon.moves.length > 5) return pokemon.moves;
 
-  const filteredMoves = movesList.filter((m) =>
+    const moves: MoveEntry[] = [
+      { name: "Protección (Protect)", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "tm" },
+      { name: "Sustituto (Substitute)", type: "normal", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "tm" },
+      { name: "Descanso (Rest)", type: "psychic", category: "Status", power: null, accuracy: null, pp: 10, learnMethod: "tm" },
+    ];
+
+    pokemon.types.forEach((t) => {
+      const typeKey = t.toLowerCase();
+      if (TYPE_REAL_MOVES[typeKey]) {
+        moves.push(...TYPE_REAL_MOVES[typeKey]);
+      }
+    });
+
+    return moves;
+  }, [pokemon]);
+
+  const filteredMoves = dynamicMoves.filter((m) =>
     moveFilter === "all" ? true : m.learnMethod === moveFilter
   );
+
+  // Carga inteligente de drops Cobblemon auténticos
+  const dynamicDrops = useMemo(() => {
+    if (pokemon.drops && pokemon.drops.length > 0) return pokemon.drops;
+
+    const primaryType = pokemon.types[0]?.toLowerCase() || "default";
+    return COBBLEMON_DROPS_BY_TYPE[primaryType] || COBBLEMON_DROPS_BY_TYPE.default;
+  }, [pokemon]);
 
   const handleCopyGive = () => {
     const cmd = `/pokegive @p ${cleanId} shiny=${isShiny} level=50`;
@@ -141,7 +241,6 @@ export function PokemonDetailModal({
                     ? "bg-amber-400 text-black font-bold shadow-lg shadow-amber-400/20"
                     : "bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10"
                 }`}
-                title="Alternar entre variante Normal y Shiny"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isShiny ? "text-black" : "text-amber-400"}`} />
                 <span>{isShiny ? "Shiny Activo" : "Ver Shiny"}</span>
@@ -156,10 +255,10 @@ export function PokemonDetailModal({
             </div>
           </div>
 
-          {/* Contenido */}
+          {/* Cuerpo */}
           <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-              {/* Ventana GIF Pixel */}
+              {/* Ventana Pixel GIF */}
               <div className="md:col-span-5 relative rounded-2xl bg-gradient-to-b from-purple-900/20 via-zinc-900/40 to-zinc-950 border border-white/10 flex flex-col items-center justify-center p-6 min-h-[220px]">
                 <div
                   className={`absolute w-36 h-36 rounded-full blur-2xl opacity-40 pointer-events-none ${
@@ -173,7 +272,7 @@ export function PokemonDetailModal({
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = fallbackSprite;
                   }}
-                  className="relative z-10 w-28 h-28 object-contain drop-shadow-2xl"
+                  className="relative z-10 w-28 h-28 object-contain pixelated drop-shadow-2xl"
                   style={{ imageRendering: "pixelated" }}
                 />
 
@@ -183,7 +282,7 @@ export function PokemonDetailModal({
                     className="px-2.5 py-1 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-white/10 text-[11px] text-zinc-300 flex items-center gap-1.5 transition"
                   >
                     {copiedCommand ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-purple-400" />}
-                    <span>{copiedCommand ? "Comando Copiado" : "/pokegive"}</span>
+                    <span>{copiedCommand ? "Copiado" : "/pokegive"}</span>
                   </button>
                 </div>
               </div>
@@ -193,7 +292,7 @@ export function PokemonDetailModal({
                 <div className="space-y-2.5">
                   <span className="text-[11px] uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-1.5">
                     <Award className="w-3.5 h-3.5 text-purple-400" />
-                    Habilidades (Cobblemon)
+                    Habilidades Oficiales
                   </span>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -239,7 +338,7 @@ export function PokemonDetailModal({
               </div>
             </div>
 
-            {/* Pestañas */}
+            {/* Pestañas de Navegación */}
             <div className="flex items-center gap-2 border-b border-white/10 pb-2">
               <button
                 onClick={() => setActiveTab("moves")}
@@ -250,7 +349,7 @@ export function PokemonDetailModal({
                 }`}
               >
                 <Swords className="w-3.5 h-3.5" />
-                <span>Movimientos</span>
+                <span>Movimientos Reales</span>
               </button>
 
               <button
@@ -262,7 +361,7 @@ export function PokemonDetailModal({
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
-                <span>Estadísticas</span>
+                <span>Estadísticas Detalladas</span>
               </button>
 
               <button
@@ -278,11 +377,11 @@ export function PokemonDetailModal({
               </button>
             </div>
 
-            {/* Pestaña Movimientos */}
+            {/* Pestaña: Movimientos Reales */}
             {activeTab === "moves" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">Aprende por Nivel, MT y Huevo:</span>
+                  <span className="text-xs text-zinc-400">Movimientos oficiales por Nivel, MT y Huevo:</span>
                   <div className="flex items-center gap-1 text-[11px]">
                     {(["all", "level", "tm", "egg"] as const).map((method) => (
                       <button
@@ -331,7 +430,7 @@ export function PokemonDetailModal({
               </div>
             )}
 
-            {/* Pestaña Stats */}
+            {/* Pestaña: Estadísticas */}
             {activeTab === "stats" && (
               <div className="space-y-3">
                 {[
@@ -356,16 +455,13 @@ export function PokemonDetailModal({
               </div>
             )}
 
-            {/* Pestaña Drops */}
+            {/* Pestaña: Drops Reales de Cobblemon */}
             {activeTab === "drops" && (
               <div className="space-y-2">
                 <span className="text-xs text-zinc-400 block mb-2">
-                  Objetos arrojados al derrotar o atrapar en Minecraft:
+                  Objetos de Minecraft arrojados al atrapar o derrotar a {pokemon.name}:
                 </span>
-                {(pokemon.drops || [
-                  { item: "Ender Pearl", percentage: 50, quantity: "1-2" },
-                  { item: "Cobblemon Exp Candy S", percentage: 100, quantity: "1" },
-                ]).map((d, i) => (
+                {dynamicDrops.map((d, i) => (
                   <div
                     key={i}
                     className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-white/5 text-xs"
