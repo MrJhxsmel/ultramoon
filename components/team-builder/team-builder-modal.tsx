@@ -24,6 +24,8 @@ import {
   Sparkles,
   Wand2,
   Image as ImageIcon,
+  Archive,
+  ArrowRightLeft,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
 import { PokemonData } from "@/types/pokemon";
@@ -102,6 +104,9 @@ const DEFAULT_TEAMS: SavedTeam[] = [
 export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   const [teams, setTeams] = useState<SavedTeam[]>(DEFAULT_TEAMS);
   const [activeTeamId, setActiveTeamId] = useState<string>("default-team-1");
+  const [storageBox, setStorageBox] = useState<TeamMember[]>([]); // Caja PC de reserva
+  const [activeTab, setActiveTab] = useState<"team" | "pc">("team");
+
   const [isEditingName, setIsEditingName] = useState(false);
   const [teamNameInput, setTeamNameInput] = useState("");
 
@@ -126,6 +131,16 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) currentTeams = parsed;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const savedPc = localStorage.getItem("ultramoon_pc_box");
+    if (savedPc) {
+      try {
+        const parsedPc = JSON.parse(savedPc);
+        if (Array.isArray(parsedPc)) setStorageBox(parsedPc);
       } catch (e) {
         console.error(e);
       }
@@ -172,6 +187,11 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     localStorage.setItem("ultramoon_teams", JSON.stringify(updatedTeams));
   };
 
+  const savePcToStorage = (updatedPc: TeamMember[]) => {
+    setStorageBox(updatedPc);
+    localStorage.setItem("ultramoon_pc_box", JSON.stringify(updatedPc));
+  };
+
   const activeTeam = useMemo(() => {
     return teams.find((t) => t.id === activeTeamId) || teams[0];
   }, [teams, activeTeamId]);
@@ -202,7 +222,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   }, [searchQuery]);
 
   const handleAddPokemon = (pokemon: PokemonData) => {
-    if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
     const cleanKey = pokemon.name.toLowerCase();
     const preset = COMPETITIVE_PRESETS[cleanKey];
 
@@ -214,37 +233,40 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       customMoves: preset?.moves || ["Protect", "Substitute", "Tackle", "Rest"],
     };
 
-    const updated = teams.map((t) => {
-      if (t.id === activeTeam.id) {
-        return { ...t, pokemonList: [...t.pokemonList, newMember] };
-      }
-      return t;
-    });
+    if (activeTab === "pc") {
+      savePcToStorage([...storageBox, newMember]);
+    } else {
+      if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
+      const updated = teams.map((t) => {
+        if (t.id === activeTeam.id) {
+          return { ...t, pokemonList: [...t.pokemonList, newMember] };
+        }
+        return t;
+      });
+      saveTeamsToStorage(updated);
+    }
 
-    saveTeamsToStorage(updated);
     setIsPickerOpen(false);
     setSearchQuery("");
   };
 
-  const handleApplyPreset = (pokemonName: string) => {
-    if (!editingMember) return;
-    const cleanKey = pokemonName.toLowerCase();
-    const preset = COMPETITIVE_PRESETS[cleanKey];
-    if (preset) {
-      setEditingMember({
-        ...editingMember,
-        customItem: preset.item,
-        customNature: preset.nature,
-        customMoves: preset.moves,
-      });
-    } else {
-      setEditingMember({
-        ...editingMember,
-        customItem: "Life Orb",
-        customNature: "Jolly",
-        customMoves: ["Protect", "Earthquake", "Substitute", "Rest"],
-      });
-    }
+  // Mover de la Caja PC al equipo titular
+  const handleMovePcToTeam = (member: TeamMember) => {
+    if (!activeTeam || activeTeam.pokemonList.length >= 6) return;
+    savePcToStorage(storageBox.filter((m) => m.memberId !== member.memberId));
+    const updated = teams.map((t) => {
+      if (t.id === activeTeam.id) {
+        return { ...t, pokemonList: [...t.pokemonList, member] };
+      }
+      return t;
+    });
+    saveTeamsToStorage(updated);
+  };
+
+  // Mover del equipo titular a la Caja PC
+  const handleMoveTeamToPc = (member: TeamMember) => {
+    handleRemovePokemon(member.memberId);
+    savePcToStorage([...storageBox, member]);
   };
 
   const handleRemovePokemon = (memberId: string) => {
@@ -262,19 +284,20 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
   };
 
   const handleSaveMemberCustomization = (updatedMember: TeamMember) => {
-    if (!activeTeam) return;
-    const updated = teams.map((t) => {
-      if (t.id === activeTeam.id) {
-        return {
-          ...t,
-          pokemonList: t.pokemonList.map((m) =>
-            m.memberId === updatedMember.memberId ? updatedMember : m
-          ),
-        };
-      }
-      return t;
-    });
-    saveTeamsToStorage(updated);
+    if (activeTab === "pc") {
+      savePcToStorage(storageBox.map((m) => (m.memberId === updatedMember.memberId ? updatedMember : m)));
+    } else if (activeTeam) {
+      const updated = teams.map((t) => {
+        if (t.id === activeTeam.id) {
+          return {
+            ...t,
+            pokemonList: t.pokemonList.map((m) => (m.memberId === updatedMember.memberId ? updatedMember : m)),
+          };
+        }
+        return t;
+      });
+      saveTeamsToStorage(updated);
+    }
     setEditingMember(null);
   };
 
@@ -329,9 +352,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
         nature = natureLine.split(" ")[0].trim();
       }
 
-      const moveLines = lines
-        .filter((l) => l.startsWith("-"))
-        .map((l) => l.replace(/^-\s*/, "").trim());
+      const moveLines = lines.filter((l) => l.startsWith("-")).map((l) => l.replace(/^-\s*/, "").trim());
 
       const customMoves: [string, string, string, string] = [
         moveLines[0] || "Protect",
@@ -340,9 +361,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
         moveLines[3] || "Rest",
       ];
 
-      const found = ALL_POKEMON.find(
-        (p) => p.name.toLowerCase() === rawName.toLowerCase()
-      ) || {
+      const found = ALL_POKEMON.find((p) => p.name.toLowerCase() === rawName.toLowerCase()) || {
         id: 999,
         name: rawName,
         types: ["Normal"],
@@ -365,25 +384,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
 
     return newMembers;
   }
-
-  const handleManualImport = () => {
-    const parsed = parseShowdown(importText);
-    if (parsed.length > 0) {
-      const newTeamId = "team-" + Date.now();
-      const newTeam: SavedTeam = {
-        id: newTeamId,
-        name: `Equipo Importado ${teams.length + 1}`,
-        pokemonList: parsed,
-      };
-      const updated = [...teams, newTeam];
-      saveTeamsToStorage(updated);
-      setActiveTeamId(newTeamId);
-      setIsImportModalOpen(false);
-      setImportText("");
-      setSharedToastMessage(`¡Equipo importado con éxito!`);
-      setTimeout(() => setSharedToastMessage(null), 4000);
-    }
-  };
 
   const exportShowdownText = useMemo(() => {
     if (!activeTeam || activeTeam.pokemonList.length === 0) return "";
@@ -427,236 +427,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(shareableUrl)}`;
   }, [shareableUrl]);
 
-  const handleCopyLink = () => {
-    if (!shareableUrl) return;
-    navigator.clipboard.writeText(shareableUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
-  // Generador de Tarjeta de Equipo PNG nativo con Canvas
-  // Colores elementales oficiales para los badges del Canvas
-  const TYPE_CANVAS_COLORS: Record<string, string> = {
-    Normal: "#94a3b8", Fire: "#f97316", Water: "#38bdf8", Grass: "#22c55e",
-    Electric: "#facc15", Ice: "#67e8f9", Fighting: "#ef4444", Poison: "#a855f7",
-    Ground: "#ca8a04", Flying: "#818cf8", Psychic: "#ec4899", Bug: "#84cc16",
-    Rock: "#a16207", Ghost: "#7e22ce", Dragon: "#6366f1", Steel: "#64748b",
-    Dark: "#475569", Fairy: "#f472b6",
-  };
-
-  const handleDownloadTeamCard = async () => {
-    if (!activeTeam || activeTeam.pokemonList.length === 0) return;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = 1280;
-    canvas.height = 720;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // 1. Fondo Oscuro Profundo
-    ctx.fillStyle = "#07090e";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 2. Resplandores ambientales cyberpunk (Gradients)
-    const glow1 = ctx.createRadialGradient(200, 100, 10, 200, 100, 450);
-    glow1.addColorStop(0, "rgba(168, 85, 247, 0.25)");
-    glow1.addColorStop(1, "rgba(7, 9, 14, 0)");
-    ctx.fillStyle = glow1;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const glow2 = ctx.createRadialGradient(1080, 600, 10, 1080, 600, 500);
-    glow2.addColorStop(0, "rgba(56, 189, 248, 0.2)");
-    glow2.addColorStop(1, "rgba(7, 9, 14, 0)");
-    ctx.fillStyle = glow2;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 3. Encabezado Branding
-    // Insignia Superior
-    ctx.fillStyle = "rgba(168, 85, 247, 0.15)";
-    ctx.strokeStyle = "rgba(168, 85, 247, 0.4)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(50, 36, 150, 24, 12);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = "#c084fc";
-    ctx.font = "bold 11px sans-serif";
-    ctx.fillText("COBBLEMON GEN 9", 64, 52);
-
-    // Título Principal
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "900 32px sans-serif";
-    ctx.fillText(activeTeam.name, 50, 92);
-
-    // Subtítulo
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "500 14px sans-serif";
-    ctx.fillText("Ultramoon Competitive Suite • Formato 6v6 VGC / Cobblemon", 50, 114);
-
-    // Función auxiliar para cargar imágenes en Canvas con CORS
-    const loadImage = (url: string): Promise<HTMLImageElement> => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load ${url}`));
-        img.src = url;
-      });
-    };
-
-    // 4. Renderizar la cuadrícula de los 6 slots
-    for (let i = 0; i < 6; i++) {
-      const col = i % 3;
-      const row = Math.floor(i / 3);
-      const x = 50 + col * 393;
-      const y = 145 + row * 255;
-      const cardW = 373;
-      const cardH = 240;
-
-      const member = activeTeam.pokemonList[i];
-
-      if (!member) {
-        // Slot Vacío con marco discontinuo
-        ctx.save();
-        ctx.setLineDash([6, 6]);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-        ctx.fillStyle = "rgba(255, 255, 255, 0.01)";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.roundRect(x, y, cardW, cardH, 20);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = "#475569";
-        ctx.font = "600 13px monospace";
-        ctx.textAlign = "center";
-        ctx.fillText(`Slot #${i + 1} Vacío`, x + cardW / 2, y + cardH / 2);
-        ctx.restore();
-        continue;
-      }
-
-      // Tarjeta de Pokémon Activo (Glassmorphism card)
-      ctx.fillStyle = "#0f131d";
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.roundRect(x, y, cardW, cardH, 20);
-      ctx.fill();
-      ctx.stroke();
-
-      // Recuadro interior de Sprite
-      ctx.fillStyle = "#0a0c14";
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-      ctx.beginPath();
-      ctx.roundRect(x + 16, y + 16, 92, 92, 16);
-      ctx.fill();
-      ctx.stroke();
-
-      // Cargar e insertar Sprite
-      try {
-        const spriteImg = await loadImage(member.sprite);
-        ctx.imageSmoothingEnabled = false; // Mantiene el estilo pixel art nítido
-        ctx.drawImage(spriteImg, x + 20, y + 20, 84, 84);
-      } catch (err) {
-        // Fallback gráfico si falla la carga externa
-        ctx.fillStyle = "#38bdf8";
-        ctx.font = "bold 26px sans-serif";
-        ctx.fillText("✦", x + 50, y + 68);
-      }
-
-      // Nombre del Pokémon
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 19px sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText(member.name, x + 120, y + 42);
-
-      // Objeto Equipado
-      ctx.fillStyle = "#fbbf24";
-      ctx.font = "bold 12px monospace";
-      ctx.fillText(`@${member.customItem || "Leftovers"}`, x + 120, y + 64);
-
-      // Naturaleza y Habilidad
-      ctx.fillStyle = "#a855f7";
-      ctx.font = "600 11px sans-serif";
-      ctx.fillText(
-        `Nat: ${member.customNature || "Timid"} • ${member.abilities?.primary || "Overgrow"}`,
-        x + 120,
-        y + 83
-      );
-
-      // Badges de Tipos
-      let badgeX = x + 120;
-      (member.types || ["Normal"]).forEach((t) => {
-        const capType = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
-        const typeColor = TYPE_CANVAS_COLORS[capType] || "#94a3b8";
-
-        ctx.fillStyle = typeColor + "25";
-        ctx.strokeStyle = typeColor + "60";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(badgeX, y + 92, 60, 18, 6);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = typeColor;
-        ctx.font = "bold 9px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(capType.toUpperCase(), badgeX + 30, y + 104);
-        badgeX += 66;
-      });
-
-      // Separador
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
-      ctx.beginPath();
-      ctx.moveTo(x + 16, y + 124);
-      ctx.lineTo(x + cardW - 16, y + 124);
-      ctx.stroke();
-
-      // Cuadrícula 2x2 de los 4 Movimientos
-      const moves = member.customMoves || ["Protect", "Substitute", "Tackle", "Rest"];
-      ctx.textAlign = "left";
-      moves.forEach((move, mIdx) => {
-        const mCol = mIdx % 2;
-        const mRow = Math.floor(mIdx / 2);
-        const mX = x + 18 + mCol * 172;
-        const mY = y + 140 + mRow * 46;
-
-        ctx.fillStyle = "#161b26";
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-        ctx.beginPath();
-        ctx.roundRect(mX, mY, 162, 38, 10);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = "#38bdf8";
-        ctx.font = "bold 11px sans-serif";
-        ctx.fillText("▸", mX + 10, mY + 23);
-
-        ctx.fillStyle = "#e2e8f0";
-        ctx.font = "600 12px sans-serif";
-        const trimmedMove = move.length > 17 ? move.slice(0, 16) + "…" : move;
-        ctx.fillText(trimmedMove, mX + 26, mY + 23);
-      });
-    }
-
-    // 5. Pie de Tarjeta / Watermark
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#64748b";
-    ctx.font = "500 12px sans-serif";
-    ctx.fillText("Generado con Ultramoon • Cobblemon Minecraft Competitive Suite", 50, 685);
-
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#a855f7";
-    ctx.font = "bold 12px monospace";
-    ctx.fillText(window.location.host || "ultramoon.vercel.app", 1230, 685);
-
-    // Descarga automática en PNG
-    const link = document.createElement("a");
-    link.download = `${activeTeam.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}-ultramoon.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -683,37 +453,26 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 <Users className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">
-                  Team Builder & Gestor de Equipos
-                </h2>
+                <h2 className="text-xl font-bold text-white">Team Builder & Caja PC</h2>
                 <p className="text-xs text-zinc-400">
-                  Presets Smogon, descarga en PNG, enlace compartible y QR
+                  Gestión 6v6, rotación de suplentes en Storage Box y exportaciones
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={handleDownloadTeamCard}
+                onClick={() => {
+                  if (!shareableUrl) return;
+                  navigator.clipboard.writeText(shareableUrl);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2000);
+                }}
                 disabled={!activeTeam || activeTeam.pokemonList.length === 0}
-                className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-xs font-semibold text-purple-300 transition flex items-center gap-1.5 disabled:opacity-40"
-                title="Descargar ficha del equipo en imagen PNG"
+                className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-300 transition flex items-center gap-1.5 disabled:opacity-40"
               >
-                <ImageIcon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Descargar PNG</span>
-              </button>
-
-              <button
-                onClick={handleCopyLink}
-                disabled={!activeTeam || activeTeam.pokemonList.length === 0}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-40 ${
-                  copiedLink
-                    ? "bg-emerald-500 text-black border-emerald-400 font-bold"
-                    : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300"
-                }`}
-              >
-                {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5 text-purple-400" />}
-                <span>{copiedLink ? "¡Copiado!" : "Compartir Enlace"}</span>
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link className="w-3.5 h-3.5 text-purple-400" />}
+                <span>{copiedLink ? "¡Copiado!" : "Compartir"}</span>
               </button>
 
               <button
@@ -725,269 +484,147 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 <span className="hidden sm:inline">QR</span>
               </button>
 
-              <button
-                onClick={() => setIsImportModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-xs font-semibold text-purple-300 transition flex items-center gap-1.5"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Importar</span>
-              </button>
-
               <button onClick={onClose} className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* Toast */}
-          {sharedToastMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/60 via-indigo-900/40 to-zinc-900 border border-purple-500/40 flex items-center justify-between shadow-lg"
+          {/* Pestañas: Equipo Titular vs Caja PC */}
+          <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+            <button
+              onClick={() => setActiveTab("team")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                activeTab === "team" ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30" : "bg-zinc-900 text-zinc-400 hover:text-white"
+              }`}
             >
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-xs font-bold text-white">{sharedToastMessage}</span>
-              </div>
-              <button onClick={() => setSharedToastMessage(null)} className="text-zinc-400 hover:text-white text-xs px-2">
-                ✕
-              </button>
-            </motion.div>
-          )}
+              <Users className="w-3.5 h-3.5" />
+              <span>Equipo Titular ({activeTeam?.pokemonList.length || 0}/6)</span>
+            </button>
 
-          {/* Cajas y Equipos */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-white/5">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
-              {teams.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    setActiveTeamId(t.id);
-                    setIsEditingName(false);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition shrink-0 flex items-center gap-2 ${
-                    t.id === activeTeamId
-                      ? "bg-purple-500 text-white font-bold shadow-lg shadow-purple-500/20"
-                      : "bg-zinc-950 border border-white/5 text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  <span>{t.name}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40">
-                    {t.pokemonList.length}/6
-                  </span>
-                </button>
-              ))}
-
-              <button
-                onClick={() => {
-                  const newTeam: SavedTeam = {
-                    id: "team-" + Date.now(),
-                    name: `Equipo ${teams.length + 1}`,
-                    pokemonList: [],
-                  };
-                  saveTeamsToStorage([...teams, newTeam]);
-                  setActiveTeamId(newTeam.id);
-                }}
-                className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-300 transition flex items-center gap-1 shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5 text-purple-400" />
-                <span>Nuevo</span>
-              </button>
-            </div>
-
-            {activeTeam && (
-              <div className="flex items-center gap-2 shrink-0">
-                {isEditingName ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      value={teamNameInput}
-                      onChange={(e) => setTeamNameInput(e.target.value)}
-                      className="bg-zinc-950 border border-purple-500/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none w-36"
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => {
-                        if (!teamNameInput.trim()) return;
-                        saveTeamsToStorage(
-                          teams.map((t) =>
-                            t.id === activeTeam.id ? { ...t, name: teamNameInput.trim() } : t
-                          )
-                        );
-                        setIsEditingName(false);
-                      }}
-                      className="p-1 rounded bg-purple-500 text-white"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={() => setIsEditingName(true)} className="p-1.5 rounded-lg bg-zinc-950 border border-white/10 text-zinc-400 hover:text-white text-xs">
-                    <Edit2 className="w-3 h-3" />
-                  </button>
-                )}
-
-                {teams.length > 1 && (
-                  <button
-                    onClick={() => {
-                      const updated = teams.filter((t) => t.id !== activeTeam.id);
-                      saveTeamsToStorage(updated);
-                      setActiveTeamId(updated[0].id);
-                    }}
-                    className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            )}
+            <button
+              onClick={() => setActiveTab("pc")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                activeTab === "pc" ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30" : "bg-zinc-900 text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span>Caja PC / Suplentes ({storageBox.length})</span>
+            </button>
           </div>
 
-          {/* Slots 6 Pokémon */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
-                Integrantes del Equipo ({activeTeam?.pokemonList.length || 0}/6):
-              </span>
-
-              {activeTeam && activeTeam.pokemonList.length < 6 && (
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() => setIsPickerOpen(!isPickerOpen)}
-                    className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-semibold transition flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Añadir Pokémon</span>
-                  </button>
-
-                  <AnimatePresence>
-                    {isPickerOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 6 }}
-                        className="absolute right-0 top-full mt-2 w-80 bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl z-50 p-2 overflow-hidden"
-                      >
-                        <div className="relative mb-2">
-                          <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Buscar en la Dex..."
-                            autoFocus
-                            className="w-full bg-zinc-950 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400"
-                          />
-                        </div>
-                        <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                          {availablePokemon.map((p) => (
-                            <button
-                              key={p.id + "-" + p.name}
-                              onClick={() => handleAddPokemon(p)}
-                              className="w-full p-2 rounded-xl flex items-center justify-between text-left hover:bg-white/[0.06] text-zinc-300 transition"
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <img src={p.sprite} alt={p.name} className="w-7 h-7 object-contain" />
-                                <span className="text-xs font-bold text-white truncate">{p.name}</span>
-                              </div>
-                              <span className="text-[10px] text-zinc-500 font-mono">#{p.id}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, idx) => {
-                const member = activeTeam?.pokemonList[idx];
-
-                if (!member) {
-                  return (
-                    <div
-                      key={idx}
-                      className="h-28 rounded-2xl border border-dashed border-white/10 bg-white/[0.01] flex flex-col items-center justify-center text-zinc-600 gap-1"
-                    >
-                      <span className="text-xs font-mono">Slot #{idx + 1}</span>
-                      <span className="text-[10px]">Vacío</span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div
-                    key={member.memberId}
-                    onClick={() => setEditingMember(member)}
-                    className="p-3.5 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-white/5 hover:border-purple-500/40 transition flex items-center justify-between gap-3 relative cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img src={member.sprite} alt={member.name} className="w-12 h-12 object-contain shrink-0 drop-shadow" />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-white truncate">{member.name}</span>
-                          <Sliders className="w-3 h-3 text-purple-400 opacity-0 group-hover:opacity-100 transition" />
-                        </div>
-                        <span className="text-[9px] text-amber-300 font-mono block">@{member.customItem || "Leftovers"}</span>
-                        <span className="text-[10px] font-mono text-zinc-400 mt-0.5 block truncate">
-                          {member.customMoves?.slice(0, 2).join(", ")}...
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemovePokemon(member.memberId);
-                      }}
-                      className="p-1.5 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Matriz Defensiva */}
-          {coverageAnalysis && (
-            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
+          {/* VISTA 1: EQUIPO TITULAR */}
+          {activeTab === "team" && (
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-purple-400" />
-                  Matriz Defensiva de Tipos (18 Tipos)
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  Slots de Batalla (6 Pokémon):
                 </span>
-                {coverageAnalysis.highVulnerabilities.length > 0 && (
-                  <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    {coverageAnalysis.highVulnerabilities.length} debilidades compartidas (≥3)
-                  </span>
+
+                {activeTeam && activeTeam.pokemonList.length < 6 && (
+                  <div className="relative" ref={dropdownRef}>
+                    <button
+                      onClick={() => setIsPickerOpen(!isPickerOpen)}
+                      className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-semibold transition flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Añadir Pokémon</span>
+                    </button>
+
+                    <AnimatePresence>
+                      {isPickerOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 6 }}
+                          className="absolute right-0 top-full mt-2 w-80 bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl z-50 p-2 overflow-hidden"
+                        >
+                          <div className="relative mb-2">
+                            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              placeholder="Buscar en la Dex..."
+                              autoFocus
+                              className="w-full bg-zinc-950 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400"
+                            />
+                          </div>
+                          <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                            {availablePokemon.map((p) => (
+                              <button
+                                key={p.id + "-" + p.name}
+                                onClick={() => handleAddPokemon(p)}
+                                className="w-full p-2 rounded-xl flex items-center justify-between text-left hover:bg-white/[0.06] text-zinc-300 transition"
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <img src={p.sprite} alt={p.name} className="w-7 h-7 object-contain" />
+                                  <span className="text-xs font-bold text-white truncate">{p.name}</span>
+                                </div>
+                                <span className="text-[10px] text-zinc-500 font-mono">#{p.id}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-1.5 text-center">
-                {ALL_TYPES.map((t) => {
-                  const data = coverageAnalysis.analysis[t];
-                  const isHighWeak = data.weak >= 3;
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {Array.from({ length: 6 }).map((_, idx) => {
+                  const member = activeTeam?.pokemonList[idx];
+
+                  if (!member) {
+                    return (
+                      <div
+                        key={idx}
+                        className="h-28 rounded-2xl border border-dashed border-white/10 bg-white/[0.01] flex flex-col items-center justify-center text-zinc-600 gap-1"
+                      >
+                        <span className="text-xs font-mono">Slot #{idx + 1}</span>
+                        <span className="text-[10px]">Vacío</span>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
-                      key={t}
-                      className={`p-2 rounded-xl border transition ${
-                        isHighWeak
-                          ? "bg-rose-500/20 border-rose-500/50"
-                          : data.resist > data.weak
-                          ? "bg-emerald-500/10 border-emerald-500/20"
-                          : "bg-zinc-950 border-white/5"
-                      }`}
+                      key={member.memberId}
+                      onClick={() => setEditingMember(member)}
+                      className="p-3.5 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-white/5 hover:border-purple-500/40 transition flex items-center justify-between gap-3 relative cursor-pointer group"
                     >
-                      <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">{t}</span>
-                      <div className="flex items-center justify-center gap-1.5 mt-1 text-[11px] font-mono">
-                        <span className={data.weak > 0 ? "text-rose-400 font-bold" : "text-zinc-600"}>-{data.weak}</span>
-                        <span className={data.resist > 0 ? "text-emerald-400 font-bold" : "text-zinc-600"}>+{data.resist + data.immune}</span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={member.sprite} alt={member.name} className="w-12 h-12 object-contain shrink-0 drop-shadow" />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-white truncate block">{member.name}</span>
+                          <span className="text-[9px] text-amber-300 font-mono block">@{member.customItem || "Leftovers"}</span>
+                          <span className="text-[10px] font-mono text-zinc-400 mt-0.5 block truncate">
+                            {member.customMoves?.slice(0, 2).join(", ")}...
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveTeamToPc(member);
+                          }}
+                          className="p-1.5 rounded-xl text-zinc-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition"
+                          title="Enviar a Caja PC (Guardar suplente)"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemovePokemon(member.memberId);
+                          }}
+                          className="p-1.5 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -996,62 +633,63 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           )}
 
-          {/* Exportaciones */}
-          {activeTeam && activeTeam.pokemonList.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/5">
-              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-blue-400" />
-                    Formato Showdown
-                  </span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(exportShowdownText);
-                      setCopiedShowdown(true);
-                      setTimeout(() => setCopiedShowdown(false), 2000);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
-                      copiedShowdown ? "bg-emerald-500 text-black font-bold" : "bg-white/10 text-white hover:bg-white/20"
-                    }`}
-                  >
-                    {copiedShowdown ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    {copiedShowdown ? "Copiado" : "Copiar"}
-                  </button>
-                </div>
-                <pre className="text-[10px] font-mono text-zinc-400 bg-zinc-950 p-2.5 rounded-xl max-h-24 overflow-y-auto custom-scrollbar border border-white/5">
-                  {exportShowdownText}
-                </pre>
+          {/* VISTA 2: CAJA PC / STORAGE BOX */}
+          {activeTab === "pc" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  Pokémon en Caja de Reserva ({storageBox.length}):
+                </span>
+
+                <button
+                  onClick={() => setIsPickerOpen(!isPickerOpen)}
+                  className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-semibold transition flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Guardar en PC</span>
+                </button>
               </div>
 
-              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Terminal className="w-3.5 h-3.5 text-amber-400" />
-                    Comandos /pokegive (Minecraft)
-                  </span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(exportMinecraftCommands);
-                      setCopiedCommands(true);
-                      setTimeout(() => setCopiedCommands(false), 2000);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
-                      copiedCommands ? "bg-emerald-500 text-black font-bold" : "bg-white/10 text-white hover:bg-white/20"
-                    }`}
-                  >
-                    {copiedCommands ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    {copiedCommands ? "Copiado" : "Copiar"}
-                  </button>
+              {storageBox.length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-white/10 rounded-2xl text-zinc-500 text-xs space-y-1">
+                  <Archive className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
+                  <p>Tu Caja PC está vacía.</p>
+                  <p className="text-[11px] text-zinc-600">
+                    Guarda aquí Pokémon suplentes para intercambiarlos con tu equipo titular en cualquier momento.
+                  </p>
                 </div>
-                <pre className="text-[10px] font-mono text-zinc-400 bg-zinc-950 p-2.5 rounded-xl max-h-24 overflow-y-auto custom-scrollbar border border-white/5">
-                  {exportMinecraftCommands}
-                </pre>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {storageBox.map((member) => (
+                    <div
+                      key={member.memberId}
+                      className="p-3.5 rounded-2xl bg-zinc-900/60 border border-white/5 flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={member.sprite} alt={member.name} className="w-10 h-10 object-contain shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-white truncate block">{member.name}</span>
+                          <span className="text-[10px] text-zinc-400 font-mono">@{member.customItem || "Leftovers"}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleMovePcToTeam(member)}
+                        disabled={activeTeam && activeTeam.pokemonList.length >= 6}
+                        className="px-2.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 text-white text-xs font-bold transition flex items-center gap-1 shrink-0"
+                        title="Subir al equipo titular"
+                      >
+                        <ArrowRightLeft className="w-3 h-3" />
+                        <span>Al Equipo</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Modal Edición de Pokémon con Presets */}
+          {/* Modal Edición de Pokémon */}
           <AnimatePresence>
             {editingMember && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1074,27 +712,11 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       <img src={editingMember.sprite} alt={editingMember.name} className="w-10 h-10 object-contain" />
                       <div>
                         <h3 className="text-base font-bold text-white">Personalizar {editingMember.name}</h3>
-                        <span className="text-[10px] text-zinc-400">Ajusta objeto, naturaleza y los 4 ataques</span>
+                        <span className="text-[10px] text-zinc-400">Ajusta objeto, naturaleza y ataques</span>
                       </div>
                     </div>
                     <button onClick={() => setEditingMember(null)} className="p-1.5 rounded-xl text-zinc-400 hover:text-white">
                       <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20">
-                    <div className="flex items-center gap-2">
-                      <Wand2 className="w-4 h-4 text-purple-400" />
-                      <div>
-                        <span className="text-xs font-bold text-white block">Preset Competitivo Recomendado</span>
-                        <span className="text-[10px] text-zinc-400">Carga el set óptimo Smogon/VGC con 1 clic</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleApplyPreset(editingMember.name)}
-                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white transition shadow-md shadow-purple-600/30"
-                    >
-                      Cargar Set
                     </button>
                   </div>
 
@@ -1126,29 +748,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     </div>
                   </div>
 
-                  <div className="space-y-2 pt-2">
-                    <span className="text-[10px] uppercase font-bold text-zinc-500 block">Moveset (4 Ataques):</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[0, 1, 2, 3].map((moveIdx) => {
-                        const moves = editingMember.customMoves || ["Protect", "Substitute", "Tackle", "Rest"];
-                        return (
-                          <input
-                            key={moveIdx}
-                            type="text"
-                            value={moves[moveIdx]}
-                            onChange={(e) => {
-                              const newMoves = [...moves] as [string, string, string, string];
-                              newMoves[moveIdx] = e.target.value;
-                              setEditingMember({ ...editingMember, customMoves: newMoves });
-                            }}
-                            placeholder={`Movimiento #${moveIdx + 1}`}
-                            className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400"
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-
                   <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
                     <button
                       onClick={() => setEditingMember(null)}
@@ -1158,108 +757,9 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     </button>
                     <button
                       onClick={() => handleSaveMemberCustomization(editingMember)}
-                      className="px-4 py-1.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-xs text-white font-bold transition shadow-lg shadow-purple-500/20"
+                      className="px-4 py-1.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-xs text-white font-bold transition"
                     >
                       Guardar Cambios
-                    </button>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
-
-          {/* Modal QR */}
-          <AnimatePresence>
-            {isQrModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setIsQrModalOpen(false)}
-                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
-                />
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1 }}
-                  className="relative w-full max-w-sm bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4 text-center"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                    <h3 className="text-sm font-bold text-white">Transferir a Celular</h3>
-                    <button onClick={() => setIsQrModalOpen(false)} className="text-zinc-400 hover:text-white">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner">
-                    <img src={qrCodeUrl} alt="QR Team" className="w-56 h-56 object-contain" />
-                  </div>
-
-                  <p className="text-xs text-zinc-400 leading-relaxed">
-                    Escanea este código con tu cámara para cargar tu equipo en el celular con un solo clic.
-                  </p>
-
-                  <button
-                    onClick={() => setIsQrModalOpen(false)}
-                    className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition"
-                  >
-                    Cerrar
-                  </button>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
-
-          {/* Modal de Importar Showdown */}
-          <AnimatePresence>
-            {isImportModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
-                />
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1 }}
-                  className="relative w-full max-w-lg bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-purple-400" />
-                      <h3 className="text-sm font-bold text-white">Importar Formato Showdown</h3>
-                    </div>
-                    <button onClick={() => setIsImportModalOpen(false)} className="p-1 rounded-lg text-zinc-400 hover:text-white">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <textarea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    rows={8}
-                    placeholder={`Garchomp @ Life Orb\nAbility: Rough Skin\nEVs: 252 Atk / 4 SpD / 252 Spe\nJolly Nature\n- Earthquake\n- Outrage\n- Swords Dance\n- Protect`}
-                    className="w-full bg-zinc-950 border border-white/10 rounded-xl p-3 text-xs text-zinc-200 font-mono focus:outline-none focus:border-purple-400"
-                  />
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      onClick={() => setIsImportModalOpen(false)}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-zinc-300 font-semibold"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleManualImport}
-                      className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg shadow-purple-600/30 transition"
-                    >
-                      Cargar en Equipo
                     </button>
                   </div>
                 </motion.div>

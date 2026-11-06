@@ -40,25 +40,25 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 import type { PokemonData } from "@/types/pokemon";
 
 // Versión del sistema
-const CURRENT_VERSION = "v1.7.1";
+const CURRENT_VERSION = "v1.8.0";
 
 const CHANGELOG = [
   {
-    version: "v1.7.1",
+    version: "v1.8.0",
     date: "Última actualización",
     highlights: [
-      "Hábitats & Drops: Clic funcional en cualquier Pokémon para abrir directamente su ficha completa en la PokéWiki.",
-      "Optimización de Rendimiento: Carga bajo demanda de sprites con lazy loading para reducir consumo de recursos.",
-      "Buscador Inverso: Catálogo de drops con imágenes y previsualización de especies que sueltan cada material.",
-      "Team Builder: Exportador visual a imagen PNG de alta resolución con cuadrícula 6v6 y badges elementales.",
+      "Audio Cries Oficiales: Sonidos en 8-bit al seleccionar cualquier Pokémon en la PokéWiki, Hábitats y Buscador.",
+      "Comparador 1 vs 1: Regla y simulador de Speed Tiers a Nv. 50 con Choice Scarf, Tailwind y Parálisis.",
+      "Team Builder: Caja PC de Almacenamiento (Storage Box) para guardar suplentes y rotar miembros.",
+      "Evoluciones Especiales: Calculadora interactiva de Amistad (220) con conteo exacto de bayas y Campana Alivio.",
     ],
   },
   {
-    version: "v1.7.0",
+    version: "v1.7.1",
     date: "Versión previa",
     highlights: [
-      "Buscador Inverso de Drops de Minecraft y exportador PNG de equipos.",
-      "Presets competitivos Smogon y simulación de herencia de IVs en vivo.",
+      "Buscador Inverso de Drops con imágenes en miniatura.",
+      "Clic interactivo en hábitats para abrir la PokéWiki directamente.",
     ],
   },
 ];
@@ -83,9 +83,9 @@ const modules: ToolModule[] = [
   },
   {
     id: "team-builder",
-    title: "Team Builder",
-    badge: "6V6 VGC",
-    description: "Constructor con importador Showdown, enlace compartible, descarga en PNG y QR móvil.",
+    title: "Team Builder & Caja PC",
+    badge: "6V6 + STORAGE",
+    description: "Constructor 6v6 con almacenamiento de suplentes, presets Smogon, PNG y enlace compartible.",
     icon: Users,
     accent: "indigo",
   },
@@ -99,9 +99,9 @@ const modules: ToolModule[] = [
   },
   {
     id: "speed-tiers",
-    title: "Comparador 1 vs 1",
+    title: "Speed Tiers & Duelo 1v1",
     badge: "SPEED TIERS",
-    description: "Duelos analíticos directos, Speed Tiers, ventajas de tipos y comparativas de estadísticas.",
+    description: "Duelos analíticos, cálculo de iniciativa a Nv. 50 con Scarf, Tailwind y Parálisis.",
     icon: Gauge,
     accent: "cyan",
   },
@@ -131,17 +131,17 @@ const modules: ToolModule[] = [
   },
   {
     id: "habitats",
-    title: "Buscador de Hábitats",
+    title: "Buscador de Hábitats & Drops",
     badge: "SPAWNS & DROPS",
-    description: "Localizador interactivo de Pokémon por biomas y buscador inverso de drops de Minecraft.",
+    description: "Localizador interactivo de Pokémon por biomas y buscador inverso de materiales de Minecraft.",
     icon: MapPin,
     accent: "cyan",
   },
   {
     id: "evolutions",
-    title: "Evoluciones Especiales",
-    badge: "MINECRAFT",
-    description: "Métodos evolutivos adaptados a Cobblemon: niveles de amistad (220), bloques y objetos.",
+    title: "Evoluciones & Amistad",
+    badge: "220 AMISTAD",
+    description: "Calculadora de afecto y métodos especiales por bloques de Minecraft (Redstone, Hielo, Musgo).",
     icon: Sparkles,
     accent: "purple",
   },
@@ -192,7 +192,7 @@ export default function Home() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
@@ -231,6 +231,20 @@ export default function Home() {
     window.location.reload();
   };
 
+  // Reproductor oficial de Gritos Pokémon (Cries)
+  const playPokemonCry = (pokemonId: number) => {
+    if (!soundEnabled) return;
+    try {
+      const audio = new Audio(
+        `https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${pokemonId}.ogg`
+      );
+      audio.volume = 0.35;
+      audio.play().catch(() => {});
+    } catch (e) {
+      // Audio fallback silencioso
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -252,7 +266,7 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen bg-[#07090e] text-zinc-100 overflow-hidden font-sans selection:bg-purple-500/30 selection:text-white">
-      {/* Luces de ambiente vivas */}
+      {/* Luces de ambiente */}
       <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[950px] h-[550px] bg-gradient-to-b from-purple-600/25 via-indigo-600/15 to-transparent blur-3xl opacity-80" />
       <div className="pointer-events-none absolute top-1/3 -right-60 w-[550px] h-[550px] bg-cyan-500/10 blur-[130px] rounded-full" />
       <div className="pointer-events-none absolute bottom-10 -left-60 w-[550px] h-[550px] bg-rose-500/10 blur-[130px] rounded-full" />
@@ -313,8 +327,12 @@ export default function Home() {
             {/* Alternar sonido */}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition-all"
-              title={soundEnabled ? "Silenciar audio" : "Activar audio"}
+              className={`p-2 rounded-xl border transition-all ${
+                soundEnabled
+                  ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                  : "bg-zinc-800/80 border-white/10 text-zinc-400 hover:text-white"
+              }`}
+              title={soundEnabled ? "Audio de Gritos Activado" : "Audio Silenciado"}
             >
               {soundEnabled ? (
                 <Volume2 className="w-4 h-4 text-emerald-400" />
@@ -358,7 +376,7 @@ export default function Home() {
             </h2>
 
             <p className="text-sm sm:text-base text-zinc-300/90 leading-relaxed">
-              Cálculo de daño oficial, coberturas defensivas de 18 tipos, enlaces compartibles de equipos, forja 3x3 de Poké Balls y exportación de comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
+              Cálculo de daño oficial, Speed Tiers interactivos, caja de suplentes PC, exportación visual en PNG y comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -374,14 +392,14 @@ export default function Home() {
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-200 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Users className="w-4 h-4 text-purple-400" />
-                <span>Team Builder</span>
+                <span>Team Builder & PC</span>
               </button>
               <button
-                onClick={() => setActiveModal("damage-calc")}
+                onClick={() => setActiveModal("speed-tiers")}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-200 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <Swords className="w-4 h-4 text-rose-400" />
-                <span>Calculadora de Daño</span>
+                <Gauge className="w-4 h-4 text-cyan-400" />
+                <span>Speed Tiers 1v1</span>
               </button>
             </div>
           </div>
@@ -474,7 +492,7 @@ export default function Home() {
                   ¡Actualización {CURRENT_VERSION}!
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  Clic interactivo en hábitats para abrir la PokéWiki y optimización de carga de imágenes.
+                  Audio Cries oficiales, simulador Speed Tiers 1v1 y Caja PC de suplentes.
                 </p>
               </div>
             </div>
@@ -575,29 +593,31 @@ export default function Home() {
       <EVTrackerModal isOpen={activeModal === "ev-hunting"} onClose={() => setActiveModal(null)} />
       <CaptureCalculatorModal isOpen={activeModal === "catch-calc"} onClose={() => setActiveModal(null)} />
 
-      {/* Conexión directa del prop onSelectPokemon para abrir la PokéWiki */}
+      {/* Buscador de Hábitats conectado con Audio Cries */}
       <HabitatSearchModal
         isOpen={activeModal === "habitats"}
         onClose={() => setActiveModal(null)}
         onSelectPokemon={(poke) => {
           setSelectedPokemon(poke);
+          playPokemonCry(poke.id);
         }}
       />
 
       <EvolutionGuideModal isOpen={activeModal === "evolutions"} onClose={() => setActiveModal(null)} />
       <ApricornGuideModal isOpen={activeModal === "apricorns"} onClose={() => setActiveModal(null)} />
 
-      {/* Buscador Global ⌘K */}
+      {/* Buscador Global ⌘K conectado con Audio Cries */}
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onSelectPokemon={(pokemon: PokemonData) => {
           setSelectedPokemon(pokemon);
+          playPokemonCry(pokemon.id);
           setIsSearchOpen(false);
         }}
       />
 
-      {/* Ficha PokéWiki con GIFs y Shiny Toggle */}
+      {/* Ficha PokéWiki */}
       {selectedPokemon && (
         <PokemonDetailModal
           pokemon={selectedPokemon}
