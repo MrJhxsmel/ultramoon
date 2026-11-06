@@ -11,6 +11,7 @@ import {
   MapPin,
   Sparkles,
   Apple,
+  BookOpen,
   Search,
   Maximize2,
   Volume2,
@@ -19,7 +20,7 @@ import {
   Zap,
 } from "lucide-react";
 
-// Modales interactivos reales del proyecto
+// Modales interactivos del proyecto
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
 import { DamageCalculatorModal } from "@/components/pokemon/damage-calculator-modal";
 import { PokemonComparator } from "@/components/pokemon/pokemon-comparator";
@@ -30,6 +31,9 @@ import { HabitatSearchModal } from "@/components/mechanics/habitat-search-modal"
 import { EvolutionGuideModal } from "@/components/mechanics/evolution-guide-modal";
 import { ApricornGuideModal } from "@/components/mechanics/apricorn-guide-modal";
 import { SearchModal } from "@/components/pokemon/search-modal";
+import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
+
+import type { PokemonData } from "@/types/pokemon";
 
 interface ToolModule {
   id: string;
@@ -42,12 +46,20 @@ interface ToolModule {
 
 const modules: ToolModule[] = [
   {
+    id: "pokewiki",
+    title: "PokéWiki & Dex",
+    badge: "DATABASE",
+    description: "Enciclopedia Cobblemon: habilidades ocultas, movimientos por nivel/MT, estadísticas base y drops.",
+    icon: BookOpen,
+    accent: "purple",
+  },
+  {
     id: "team-builder",
     title: "Team Builder",
     badge: "6V6 VGC",
     description: "Constructor 6v6 con persistencia local, exportación Showdown y comandos /pokegive.",
     icon: Users,
-    accent: "purple",
+    accent: "indigo",
   },
   {
     id: "damage-calc",
@@ -151,9 +163,10 @@ const accentStyles = {
 export default function Home() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
 
-  // Atajo de teclado global ⌘K o Ctrl+K
+  // Atajo de teclado ⌘K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -165,6 +178,14 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const handleOpenModule = (id: string) => {
+    if (id === "pokewiki") {
+      setIsSearchOpen(true);
+      return;
+    }
+    setActiveModal(id);
+  };
+
   return (
     <div className="relative min-h-screen bg-[#07090e] text-zinc-100 overflow-hidden font-sans selection:bg-purple-500/30 selection:text-white">
       {/* Luces de ambiente vivas */}
@@ -172,7 +193,7 @@ export default function Home() {
       <div className="pointer-events-none absolute top-1/3 -right-60 w-[550px] h-[550px] bg-cyan-500/10 blur-[130px] rounded-full" />
       <div className="pointer-events-none absolute bottom-10 -left-60 w-[550px] h-[550px] bg-rose-500/10 blur-[130px] rounded-full" />
 
-      {/* Trama de cuadrícula de fondo */}
+      {/* Cuadrícula sutil */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
@@ -205,7 +226,7 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Buscador Rápido (Reemplazo de 'Paleta') */}
+            {/* Buscador Rápido ⌘K */}
             <button
               onClick={() => setIsSearchOpen(true)}
               className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-xs text-zinc-300 hover:text-white transition-all shadow-sm"
@@ -271,11 +292,18 @@ export default function Home() {
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
-                onClick={() => setActiveModal("team-builder")}
+                onClick={() => setIsSearchOpen(true)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <Users className="w-4 h-4" />
-                <span>Abrir Team Builder</span>
+                <BookOpen className="w-4 h-4" />
+                <span>Explorar PokéWiki</span>
+              </button>
+              <button
+                onClick={() => setActiveModal("team-builder")}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-200 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Users className="w-4 h-4 text-purple-400" />
+                <span>Team Builder</span>
               </button>
               <button
                 onClick={() => setActiveModal("damage-calc")}
@@ -288,14 +316,14 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Grilla de Herramientas */}
+        {/* Grilla de Herramientas y Enciclopedia */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold tracking-tight text-zinc-200 flex items-center gap-2">
               <Zap className="w-4 h-4 text-purple-400" />
-              Herramientas y Simuladores
+              Herramientas, Enciclopedia y Simuladores
             </h3>
-            <span className="text-xs text-zinc-400">9 módulos disponibles</span>
+            <span className="text-xs text-zinc-400">10 módulos disponibles</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
@@ -306,7 +334,7 @@ export default function Home() {
               return (
                 <div
                   key={module.id}
-                  onClick={() => setActiveModal(module.id)}
+                  onClick={() => handleOpenModule(module.id)}
                   className={`group relative flex flex-col justify-between p-6 rounded-2xl bg-zinc-900/50 hover:bg-zinc-900/80 border border-white/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer ${style.bgHover}`}
                 >
                   <div className="space-y-4">
@@ -334,7 +362,7 @@ export default function Home() {
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">
-                    <span>Abrir módulo</span>
+                    <span>{module.id === "pokewiki" ? "Abrir enciclopedia" : "Abrir módulo"}</span>
                     <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                   </div>
                 </div>
@@ -351,7 +379,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Instancias de los Modales Reales Conectados */}
+      {/* Instancias de los Modales Conectados */}
       <TeamBuilderModal
         isOpen={activeModal === "team-builder"}
         onClose={() => setActiveModal(null)}
@@ -397,14 +425,24 @@ export default function Home() {
         onClose={() => setActiveModal(null)}
       />
 
-      {/* Buscador General de Especies / Comandos */}
-{/* Buscador General de Especies / Comandos */}
-    <SearchModal
-    isOpen={isSearchOpen}
-    onClose={() => setIsSearchOpen(false)}
-    onSelectPokemon={() => setIsSearchOpen(false)}
-/>
+      {/* Buscador de Especies (Actúa como portal de la PokéWiki) */}
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onSelectPokemon={(pokemon: PokemonData) => {
+          setSelectedPokemon(pokemon);
+          setIsSearchOpen(false);
+        }}
+      />
 
+      {/* Ficha Completa PokéWiki (Estadísticas, Habilidades, Moves y Drops) */}
+      {selectedPokemon && (
+        <PokemonDetailModal
+          pokemon={selectedPokemon}
+          isOpen={Boolean(selectedPokemon)}
+          onClose={() => setSelectedPokemon(null)}
+        />
+      )}
     </div>
   );
 }
