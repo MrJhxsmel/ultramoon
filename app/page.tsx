@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Users,
   Swords,
@@ -15,6 +15,7 @@ import {
   Search,
   Maximize2,
   Volume2,
+  Volume1,
   VolumeX,
   ExternalLink,
   Zap,
@@ -39,26 +40,25 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 
 import type { PokemonData } from "@/types/pokemon";
 
-// Versión del sistema
-const CURRENT_VERSION = "v1.8.0";
+const CURRENT_VERSION = "v1.8.1";
 
 const CHANGELOG = [
   {
-    version: "v1.8.0",
+    version: "v1.8.1",
     date: "Última actualización",
     highlights: [
-      "Audio Cries Oficiales: Sonidos en 8-bit al seleccionar cualquier Pokémon en la PokéWiki, Hábitats y Buscador.",
+      "Control Desplegable de Volumen: Selector interactivo deslizable (0% a 100%) para los Gritos Pokémon (Cries).",
+      "Persistencia de Audio: El nivel de volumen seleccionado se almacena en el navegador para futuras sesiones.",
+      "Audio Cries Oficiales: Reproducción en 8-bit al abrir fichas en la PokéWiki, Hábitats y Buscador.",
       "Comparador 1 vs 1: Regla y simulador de Speed Tiers a Nv. 50 con Choice Scarf, Tailwind y Parálisis.",
       "Team Builder: Caja PC de Almacenamiento (Storage Box) para guardar suplentes y rotar miembros.",
-      "Evoluciones Especiales: Calculadora interactiva de Amistad (220) con conteo exacto de bayas y Campana Alivio.",
     ],
   },
   {
-    version: "v1.7.1",
+    version: "v1.8.0",
     date: "Versión previa",
     highlights: [
-      "Buscador Inverso de Drops con imágenes en miniatura.",
-      "Clic interactivo en hábitats para abrir la PokéWiki directamente.",
+      "Integración de audio cries en modales y calculadora de amistad.",
     ],
   },
 ];
@@ -192,12 +192,22 @@ export default function Home() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Estados de volumen modificable por el usuario
+  const [volume, setVolume] = useState<number>(35); // 0 a 100
+  const [isVolumePopoverOpen, setIsVolumePopoverOpen] = useState(false);
+  const volumeRef = useRef<HTMLDivElement>(null);
 
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
 
   useEffect(() => {
+    // Carga de volumen guardado en el navegador
+    const savedVol = localStorage.getItem("ultramoon_sound_volume");
+    if (savedVol !== null) {
+      setVolume(Number(savedVol));
+    }
+
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("team")) {
@@ -210,6 +220,22 @@ export default function Home() {
       setShowUpdateToast(true);
     }
   }, []);
+
+  // Cierre al hacer clic fuera del control de volumen
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (volumeRef.current && !volumeRef.current.contains(e.target as Node)) {
+        setIsVolumePopoverOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  const handleVolumeChange = (newVal: number) => {
+    setVolume(newVal);
+    localStorage.setItem("ultramoon_sound_volume", String(newVal));
+  };
 
   const handleDismissToast = () => {
     setShowUpdateToast(false);
@@ -231,17 +257,17 @@ export default function Home() {
     window.location.reload();
   };
 
-  // Reproductor oficial de Gritos Pokémon (Cries)
+  // Reproductor de Gritos Pokémon respetando el volumen seleccionado
   const playPokemonCry = (pokemonId: number) => {
-    if (!soundEnabled) return;
+    if (volume === 0) return;
     try {
       const audio = new Audio(
         `https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${pokemonId}.ogg`
       );
-      audio.volume = 0.35;
+      audio.volume = Math.max(0, Math.min(1, volume / 100));
       audio.play().catch(() => {});
     } catch (e) {
-      // Audio fallback silencioso
+      // Audio no disponible
     }
   };
 
@@ -324,22 +350,68 @@ export default function Home() {
               </kbd>
             </button>
 
-            {/* Alternar sonido */}
-            <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-2 rounded-xl border transition-all ${
-                soundEnabled
-                  ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
-                  : "bg-zinc-800/80 border-white/10 text-zinc-400 hover:text-white"
-              }`}
-              title={soundEnabled ? "Audio de Gritos Activado" : "Audio Silenciado"}
-            >
-              {soundEnabled ? (
-                <Volume2 className="w-4 h-4 text-emerald-400" />
-              ) : (
-                <VolumeX className="w-4 h-4" />
+            {/* Selector Desplegable de Volumen */}
+            <div className="relative" ref={volumeRef}>
+              <button
+                onClick={() => setIsVolumePopoverOpen(!isVolumePopoverOpen)}
+                className={`p-2 rounded-xl border transition-all flex items-center gap-1.5 ${
+                  volume > 0
+                    ? "bg-purple-500/20 border-purple-500/40 text-purple-300 shadow-sm"
+                    : "bg-zinc-800/80 border-white/10 text-zinc-500 hover:text-zinc-300"
+                }`}
+                title="Ajustar volumen de gritos Pokémon"
+              >
+                {volume === 0 ? (
+                  <VolumeX className="w-4 h-4" />
+                ) : volume < 50 ? (
+                  <Volume1 className="w-4 h-4" />
+                ) : (
+                  <Volume2 className="w-4 h-4 text-emerald-400" />
+                )}
+                <span className="text-[10px] font-mono font-bold hidden sm:inline">
+                  {volume}%
+                </span>
+              </button>
+
+              {isVolumePopoverOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 p-3 rounded-2xl bg-zinc-900 border border-white/15 shadow-2xl z-50 space-y-2 backdrop-blur-xl animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-400 font-semibold text-[11px]">Volumen</span>
+                    <span className="font-mono font-bold text-white text-[11px]">{volume}%</span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={volume}
+                    onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                    className="w-full accent-purple-500 cursor-pointer"
+                  />
+
+                  <div className="flex justify-between pt-1">
+                    <button
+                      onClick={() => handleVolumeChange(0)}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300"
+                    >
+                      Mute
+                    </button>
+                    <button
+                      onClick={() => handleVolumeChange(35)}
+                      className="text-[10px] text-purple-400 hover:text-purple-300"
+                    >
+                      Óptimo (35%)
+                    </button>
+                    <button
+                      onClick={() => handleVolumeChange(100)}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300"
+                    >
+                      100%
+                    </button>
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
 
             {/* Pantalla completa */}
             <button
@@ -492,7 +564,7 @@ export default function Home() {
                   ¡Actualización {CURRENT_VERSION}!
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  Audio Cries oficiales, simulador Speed Tiers 1v1 y Caja PC de suplentes.
+                  Control desplegable de volumen deslizable con persistencia en el navegador.
                 </p>
               </div>
             </div>
