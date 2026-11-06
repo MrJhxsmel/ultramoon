@@ -39,19 +39,28 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 
 import type { PokemonData } from "@/types/pokemon";
 
-// Versión actual del sistema (cámbiala al publicar mejoras para disparar el globo)
-const CURRENT_VERSION = "v1.2.0";
+// Versión del sistema: al cambiar este valor se dispara el globo para todos los jugadores
+const CURRENT_VERSION = "v1.3.0";
 
 const CHANGELOG = [
   {
-    version: "v1.2.0",
-    date: "Hoy",
+    version: "v1.3.0",
+    date: "Última actualización",
     highlights: [
-      "Nueva sección PokéWiki & Dex integrada.",
-      "Sprites animados en Pixel Art (GIF) para cada Pokémon.",
-      "Selector Shiny: comprueba la variante brillante y genera el comando /pokegive específico.",
-      "Pestañas de movimientos por nivel, MT y estadísticas base detalladas.",
-      "Rediseño visual Cyber-Glassmorphism con paleta y buscador ⌘K.",
+      "Calculadora de Daño: Nuevo buscador dinámico predictivo sobre toda la Dex en vez de listas rígidas.",
+      "Calculadora de Daño: Soporte completo para Pantallas (Reflejo, Pantalla Luz, Velo Aurora), Climas y Terrenos.",
+      "Team Builder: Importador directo de equipos en formato oficial de Pokémon Showdown.",
+      "Crianza (Pasture): Inclusión de todos los Objetos Recios (Power Items) para herencia garantizada de IVs al 100%.",
+      "Guía de Apricorns: Crafteo oficial Cobblemon en Mesa 3x3 de Minecraft con sprites de Poké Balls de referencia.",
+    ],
+  },
+  {
+    version: "v1.2.0",
+    date: "Versión previa",
+    highlights: [
+      "PokéWiki & Dex: Ficha completa con GIFs pixel art animados y selector de variantes Shiny.",
+      "Generador de comandos /pokegive listos para pegar en Minecraft.",
+      "Rediseño visual Cyber-Glassmorphism y atajo global ⌘K.",
     ],
   },
 ];
@@ -78,7 +87,7 @@ const modules: ToolModule[] = [
     id: "team-builder",
     title: "Team Builder",
     badge: "6V6 VGC",
-    description: "Constructor 6v6 con persistencia local, exportación Showdown y comandos /pokegive.",
+    description: "Constructor 6v6 con importador Showdown, persistencia local y comandos /pokegive.",
     icon: Users,
     accent: "indigo",
   },
@@ -86,7 +95,7 @@ const modules: ToolModule[] = [
     id: "damage-calc",
     title: "Calculadora de Daño",
     badge: "BREAKPOINTS",
-    description: "Simulador oficial con mecánicas Gen 9, clima de Minecraft, terrenos y tiradas de daño.",
+    description: "Buscador de Pokémon, pantallas, climas de Minecraft, terrenos y tiradas de daño oficiales.",
     icon: Swords,
     accent: "rose",
   },
@@ -102,7 +111,7 @@ const modules: ToolModule[] = [
     id: "breeding",
     title: "Pasture & Crianza",
     badge: "GEN 9",
-    description: "Simulador de bloques Pasture, compatibilidad de especies, radio cúbico e IVs heredados.",
+    description: "Simulador de bloques Pasture, compatibilidad de especies, radio cúbico y objetos recios.",
     icon: Egg,
     accent: "emerald",
   },
@@ -142,7 +151,7 @@ const modules: ToolModule[] = [
     id: "apricorns",
     title: "Apricorns & Bayas",
     badge: "CRAFTEO",
-    description: "Guía de forja de Poké Balls clásicas, plantaciones óptimas y recetas culinarias con efectos competitivos.",
+    description: "Recetas visuales 3x3 de Poké Balls con sprites de referencia y bayas reductoras de EVs.",
     icon: Apple,
     accent: "rose",
   },
@@ -187,12 +196,11 @@ export default function Home() {
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
 
-  // Estados del globo de actualización y modal de notas de versión
+  // Estados del globo de notificación y modal de cambios
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
 
   useEffect(() => {
-    // Comprobar la versión guardada en el cliente
     const savedVersion = localStorage.getItem("ultramoon_seen_version");
     if (savedVersion !== CURRENT_VERSION) {
       setShowUpdateToast(true);
@@ -219,7 +227,7 @@ export default function Home() {
     window.location.reload();
   };
 
-  // Atajo de teclado ⌘K / Ctrl+K
+  // Atajo global de teclado ⌘K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -256,7 +264,7 @@ export default function Home() {
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
-        {/* Cabecera / Navegación */}
+        {/* Cabecera / Barra de Navegación */}
         <header className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-xl shadow-xl shadow-black/20">
           <div className="flex items-center gap-3.5">
             <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 shadow-lg shadow-purple-500/30 text-white font-black text-xl">
@@ -274,7 +282,7 @@ export default function Home() {
                 <button
                   onClick={() => setShowChangelogModal(true)}
                   className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition"
-                  title="Ver registro de versiones"
+                  title="Ver notas de la versión"
                 >
                   {CURRENT_VERSION}
                 </button>
@@ -329,7 +337,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Hero Banner Destacado */}
+        {/* Hero Principal */}
         <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900/90 via-zinc-900/60 to-zinc-950/90 p-8 sm:p-12 backdrop-blur-2xl shadow-2xl shadow-purple-950/20">
           <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -347,7 +355,7 @@ export default function Home() {
             </h2>
 
             <p className="text-sm sm:text-base text-zinc-300/90 leading-relaxed">
-              Cálculo de daño con mecánicas oficiales, crianza precisa en Pasture Blocks, forja de Poké Balls y exportación directa de comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
+              Cálculo de daño con pantallas y climas, importador Showdown, crianza con objetos recios, forja de Poké Balls y exportación de comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -431,7 +439,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pie de página con botón de comprobación */}
+        {/* Pie de página con verificación de versión */}
         <footer className="pt-8 pb-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400">
           <p>Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics</p>
           <div className="flex items-center gap-3">
@@ -467,7 +475,7 @@ export default function Home() {
                   ¡Nueva Versión {CURRENT_VERSION}!
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  PokéWiki con GIFs animados, selector Shiny y fixes.
+                  Nuevos buscadores en daño, importador Showdown y crafteos Cobblemon.
                 </p>
               </div>
             </div>
@@ -498,7 +506,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DE REGISTRO DE CAMBIOS / NOVEDADES */}
+      {/* MODAL DE HISTORIAL DE NOVEDADES */}
       {showChangelogModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-white/10 p-6 sm:p-8 shadow-2xl shadow-purple-950/40 space-y-6">
@@ -524,7 +532,7 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
               {CHANGELOG.map((log) => (
                 <div
                   key={log.version}
@@ -613,6 +621,7 @@ export default function Home() {
         onClose={() => setActiveModal(null)}
       />
 
+      {/* Buscador Global ⌘K */}
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
@@ -622,6 +631,7 @@ export default function Home() {
         }}
       />
 
+      {/* Ficha PokéWiki con GIFs y Shiny Toggle */}
       {selectedPokemon && (
         <PokemonDetailModal
           pokemon={selectedPokemon}
