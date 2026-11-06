@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   Swords,
@@ -17,9 +17,19 @@ import {
   VolumeX,
   ExternalLink,
   Zap,
-  X,
-  ShieldAlert,
 } from "lucide-react";
+
+// Modales interactivos reales del proyecto
+import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
+import { DamageCalculatorModal } from "@/components/pokemon/damage-calculator-modal";
+import { PokemonComparator } from "@/components/pokemon/pokemon-comparator";
+import { PastureSimulator } from "@/components/breeding/pasture-simulator";
+import { EvTrackerModal as EVTrackerModal } from "@/components/mechanics/ev-tracker-modal";
+import { CaptureCalculatorModal } from "@/components/mechanics/capture-calculator-modal";
+import { HabitatSearchModal } from "@/components/mechanics/habitat-search-modal";
+import { EvolutionGuideModal } from "@/components/mechanics/evolution-guide-modal";
+import { ApricornGuideModal } from "@/components/mechanics/apricorn-guide-modal";
+import { SearchModal } from "@/components/pokemon/search-modal";
 
 interface ToolModule {
   id: string;
@@ -139,17 +149,30 @@ const accentStyles = {
 };
 
 export default function Home() {
-  const [selectedModule, setSelectedModule] = useState<ToolModule | null>(null);
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
+
+  // Atajo de teclado global ⌘K o Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <div className="relative min-h-screen bg-[#07090e] text-zinc-100 overflow-hidden font-sans selection:bg-purple-500/30 selection:text-white">
-      {/* Luces de ambiente vibrantes */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[550px] bg-gradient-to-b from-purple-600/25 via-indigo-600/15 to-transparent blur-3xl opacity-80" />
+      {/* Luces de ambiente vivas */}
+      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[950px] h-[550px] bg-gradient-to-b from-purple-600/25 via-indigo-600/15 to-transparent blur-3xl opacity-80" />
       <div className="pointer-events-none absolute top-1/3 -right-60 w-[550px] h-[550px] bg-cyan-500/10 blur-[130px] rounded-full" />
       <div className="pointer-events-none absolute bottom-10 -left-60 w-[550px] h-[550px] bg-rose-500/10 blur-[130px] rounded-full" />
 
-      {/* Malla de cuadrícula decorativa */}
+      {/* Trama de cuadrícula de fondo */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
@@ -159,7 +182,7 @@ export default function Home() {
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
-        {/* Header superior */}
+        {/* Cabecera / Navegación */}
         <header className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-xl shadow-xl shadow-black/20">
           <div className="flex items-center gap-3.5">
             <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 shadow-lg shadow-purple-500/30 text-white font-black text-xl">
@@ -182,13 +205,9 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Buscador rápido */}
+            {/* Buscador Rápido (Reemplazo de 'Paleta') */}
             <button
-              onClick={() => {
-                window.dispatchEvent(
-                  new KeyboardEvent("keydown", { key: "k", metaKey: true })
-                );
-              }}
+              onClick={() => setIsSearchOpen(true)}
               className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-xs text-zinc-300 hover:text-white transition-all shadow-sm"
               title="Abrir buscador rápido"
             >
@@ -252,14 +271,14 @@ export default function Home() {
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
-                onClick={() => setSelectedModule(modules[0])}
+                onClick={() => setActiveModal("team-builder")}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Users className="w-4 h-4" />
                 <span>Abrir Team Builder</span>
               </button>
               <button
-                onClick={() => setSelectedModule(modules[1])}
+                onClick={() => setActiveModal("damage-calc")}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-200 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Swords className="w-4 h-4 text-rose-400" />
@@ -287,7 +306,7 @@ export default function Home() {
               return (
                 <div
                   key={module.id}
-                  onClick={() => setSelectedModule(module)}
+                  onClick={() => setActiveModal(module.id)}
                   className={`group relative flex flex-col justify-between p-6 rounded-2xl bg-zinc-900/50 hover:bg-zinc-900/80 border border-white/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer ${style.bgHover}`}
                 >
                   <div className="space-y-4">
@@ -324,54 +343,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Modal interactivo de módulo */}
-        {selectedModule && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="relative w-full max-w-lg rounded-3xl bg-zinc-900/90 border border-white/10 p-6 sm:p-8 shadow-2xl shadow-purple-950/40 space-y-6">
-              <button
-                onClick={() => setSelectedModule(null)}
-                className="absolute top-5 right-5 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  <selectedModule.icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">
-                    {selectedModule.title}
-                  </h3>
-                  <span className="text-xs text-purple-400 font-semibold tracking-wider">
-                    {selectedModule.badge}
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-sm text-zinc-300 leading-relaxed">
-                {selectedModule.description}
-              </p>
-
-              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-200 flex items-start gap-3">
-                <Sparkles className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-                <span>
-                  Módulo sincronizado con la base de datos local de Cobblemon y listo para usarse.
-                </span>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setSelectedModule(null)}
-                  className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-white transition-colors"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Pie de página */}
         <footer className="pt-8 pb-4 text-center border-t border-white/5">
           <p className="text-xs text-zinc-400">
@@ -379,6 +350,61 @@ export default function Home() {
           </p>
         </footer>
       </div>
+
+      {/* Instancias de los Modales Reales Conectados */}
+      <TeamBuilderModal
+        isOpen={activeModal === "team-builder"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <DamageCalculatorModal
+        isOpen={activeModal === "damage-calc"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <PokemonComparator
+        isOpen={activeModal === "speed-tiers"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <PastureSimulator
+        isOpen={activeModal === "breeding"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <EVTrackerModal
+        isOpen={activeModal === "ev-hunting"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <CaptureCalculatorModal
+        isOpen={activeModal === "catch-calc"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <HabitatSearchModal
+        isOpen={activeModal === "habitats"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <EvolutionGuideModal
+        isOpen={activeModal === "evolutions"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <ApricornGuideModal
+        isOpen={activeModal === "apricorns"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      {/* Buscador General de Especies / Comandos */}
+{/* Buscador General de Especies / Comandos */}
+    <SearchModal
+    isOpen={isSearchOpen}
+    onClose={() => setIsSearchOpen(false)}
+    onSelectPokemon={() => setIsSearchOpen(false)}
+/>
+
     </div>
   );
 }
