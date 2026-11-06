@@ -1,20 +1,20 @@
-import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
+import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
-});
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" });
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
+export const viewport: Viewport = {
+  themeColor: "#07090e",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "Ultramoon | Cobblemon Competitive Suite",
-  description: "Suite táctica, calculadora de daño y simulador de crianza para Cobblemon",
+  description: "Suite táctica, calculadora de daño, team builder y enciclopedia Cobblemon para Minecraft",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -23,23 +23,14 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  themeColor: "#070709",
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-};
-
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="es" className="dark">
-      <body
-        className={`${inter.variable} ${spaceGrotesk.variable} antialiased bg-[#070709] text-white selection:bg-purple-500/30 selection:text-purple-200`}
-      >
+      <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans bg-[#07090e] text-zinc-100 antialiased`}>
         {children}
       </body>
     </html>

@@ -20,6 +20,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   FileText,
+  Link,
+  Share2,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
 import { PokemonData } from "@/types/pokemon";
@@ -50,7 +52,6 @@ const ALL_TYPES = [
   "Rock", "Ghost", "Dragon", "Steel", "Dark", "Fairy"
 ];
 
-// Tabla elemental estándar de efectividades (multiplicador defensivo)
 const TYPE_CHART: Record<string, Record<string, number>> = {
   Normal: { Fighting: 2, Ghost: 0 },
   Fire: { Water: 2, Ground: 2, Rock: 2, Fire: 0.5, Grass: 0.5, Ice: 0.5, Bug: 0.5, Steel: 0.5, Fairy: 0.5 },
@@ -102,8 +103,24 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
 
   const [copiedShowdown, setCopiedShowdown] = useState(false);
   const [copiedCommands, setCopiedCommands] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
+  // Carga desde localStorage y verificación de URL compartida
   useEffect(() => {
+    // Verificar si hay equipo en la URL (?team=...)
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlTeam = params.get("team");
+      if (urlTeam) {
+        try {
+          const decoded = atob(urlTeam);
+          importFromShowdownText(decoded, "Equipo Compartido");
+        } catch (e) {
+          console.error("Error al decodificar equipo de la URL", e);
+        }
+      }
+    }
+
     const saved = localStorage.getItem("ultramoon_teams");
     if (saved) {
       try {
@@ -205,7 +222,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     setEditingMember(null);
   };
 
-  // Cálculo de Matriz de Cobertura y Debilidades de los 18 tipos
+  // Coberturas y debilidades
   const coverageAnalysis = useMemo(() => {
     if (!activeTeam || activeTeam.pokemonList.length === 0) return null;
 
@@ -230,14 +247,12 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     });
 
     const highVulnerabilities = Object.entries(analysis).filter(([_, data]) => data.weak >= 3);
-
     return { analysis, highVulnerabilities };
   }, [activeTeam]);
 
-  // Importador Showdown
-  const handleImportShowdown = () => {
-    if (!importText.trim()) return;
-    const blocks = importText.trim().split(/\n\s*\n/);
+  // Parser reusable
+  const importFromShowdownText = (rawText: string, customTeamName?: string) => {
+    const blocks = rawText.trim().split(/\n\s*\n/);
     const newMembers: TeamMember[] = [];
 
     for (const block of blocks.slice(0, 6)) {
@@ -294,14 +309,14 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       });
     }
 
-    if (newMembers.length > 0 && activeTeam) {
-      const updated = teams.map((t) => {
-        if (t.id === activeTeam.id) {
-          return { ...t, pokemonList: newMembers };
-        }
-        return t;
-      });
-      saveTeamsToStorage(updated);
+    if (newMembers.length > 0) {
+      const newTeam: SavedTeam = {
+        id: "team-" + Date.now(),
+        name: customTeamName || `Equipo Importado ${teams.length + 1}`,
+        pokemonList: newMembers,
+      };
+      saveTeamsToStorage([...teams, newTeam]);
+      setActiveTeamId(newTeam.id);
       setIsImportModalOpen(false);
       setImportText("");
     }
@@ -338,12 +353,24 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
       .join("\n");
   }, [activeTeam]);
 
-  // Enlace codificado para abrir en el celular vía QR
-  const qrCodeUrl = useMemo(() => {
-    if (!activeTeam || activeTeam.pokemonList.length === 0) return "";
-    const teamPayload = encodeURIComponent(exportShowdownText);
-    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${teamPayload}`;
+  // Generador de URL directa para compartir por WhatsApp / Discord
+  const shareableUrl = useMemo(() => {
+    if (!activeTeam || activeTeam.pokemonList.length === 0 || typeof window === "undefined") return "";
+    const b64 = btoa(unescape(encodeURIComponent(exportShowdownText)));
+    return `${window.location.origin}/?team=${b64}`;
   }, [activeTeam, exportShowdownText]);
+
+  const qrCodeUrl = useMemo(() => {
+    if (!shareableUrl) return "";
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(shareableUrl)}`;
+  }, [shareableUrl]);
+
+  const handleCopyLink = () => {
+    if (!shareableUrl) return;
+    navigator.clipboard.writeText(shareableUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   if (!isOpen) return null;
 
@@ -375,12 +402,26 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                   Team Builder & Gestor de Equipos
                 </h2>
                 <p className="text-xs text-zinc-400">
-                  Importación Showdown, análisis de cobertura y transferencia móvil por QR
+                  Importación Showdown, enlace compartible, matriz de tipos y QR
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyLink}
+                disabled={!activeTeam || activeTeam.pokemonList.length === 0}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-40 ${
+                  copiedLink
+                    ? "bg-emerald-500 text-black border-emerald-400 font-bold"
+                    : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300"
+                }`}
+                title="Copiar enlace único para abrir en otro navegador"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5 text-purple-400" />}
+                <span>{copiedLink ? "¡Enlace Copiado!" : "Compartir Enlace"}</span>
+              </button>
+
               <button
                 onClick={() => setIsQrModalOpen(true)}
                 disabled={!activeTeam || activeTeam.pokemonList.length === 0}
@@ -395,7 +436,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-xs font-semibold text-purple-300 transition flex items-center gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>Importar Showdown</span>
+                <span>Importar</span>
               </button>
 
               <button
@@ -407,7 +448,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           </div>
 
-          {/* Selector de Cajas */}
+          {/* Cajas y Equipos */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-white/5">
             <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
               {teams.map((t) => (
@@ -485,7 +526,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             )}
           </div>
 
-          {/* Grilla 6 Pokémon */}
+          {/* Grilla de 6 Slots */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
@@ -594,7 +635,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           </div>
 
-          {/* MATRIZ DE COBERTURA Y DEBILIDADES ELEMENTALES */}
+          {/* Matriz de Tipos */}
           {coverageAnalysis && (
             <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
               <div className="flex items-center justify-between">
@@ -625,16 +666,10 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                           : "bg-zinc-950 border-white/5"
                       }`}
                     >
-                      <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">
-                        {t}
-                      </span>
+                      <span className="text-[10px] uppercase font-bold text-zinc-300 block truncate">{t}</span>
                       <div className="flex items-center justify-center gap-1.5 mt-1 text-[11px] font-mono">
-                        <span className={data.weak > 0 ? "text-rose-400 font-bold" : "text-zinc-600"}>
-                          -{data.weak}
-                        </span>
-                        <span className={data.resist > 0 ? "text-emerald-400 font-bold" : "text-zinc-600"}>
-                          +{data.resist + data.immune}
-                        </span>
+                        <span className={data.weak > 0 ? "text-rose-400 font-bold" : "text-zinc-600"}>-{data.weak}</span>
+                        <span className={data.resist > 0 ? "text-emerald-400 font-bold" : "text-zinc-600"}>+{data.resist + data.immune}</span>
                       </div>
                     </div>
                   );
@@ -643,7 +678,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           )}
 
-          {/* Exportaciones Showdown & /pokegive */}
+          {/* Exportaciones */}
           {activeTeam && activeTeam.pokemonList.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/5">
               <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2">
@@ -659,9 +694,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       setTimeout(() => setCopiedShowdown(false), 2000);
                     }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
-                      copiedShowdown
-                        ? "bg-emerald-500 text-black font-bold"
-                        : "bg-white/10 text-white hover:bg-white/20"
+                      copiedShowdown ? "bg-emerald-500 text-black font-bold" : "bg-white/10 text-white hover:bg-white/20"
                     }`}
                   >
                     {copiedShowdown ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
@@ -686,9 +719,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       setTimeout(() => setCopiedCommands(false), 2000);
                     }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
-                      copiedCommands
-                        ? "bg-emerald-500 text-black font-bold"
-                        : "bg-white/10 text-white hover:bg-white/20"
+                      copiedCommands ? "bg-emerald-500 text-black font-bold" : "bg-white/10 text-white hover:bg-white/20"
                     }`}
                   >
                     {copiedCommands ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
@@ -702,7 +733,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           )}
 
-          {/* MODAL QR MÓVIL FUNCIONAL */}
+          {/* Modal QR Móvil */}
           <AnimatePresence>
             {isQrModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -717,7 +748,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  exit={{ opacity: 0, scale: 1 }}
                   className="relative w-full max-w-sm bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4 text-center"
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -732,7 +763,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                   </div>
 
                   <p className="text-xs text-zinc-400 leading-relaxed">
-                    Escanea este código con la cámara de tu celular para abrir el formato Showdown de tu equipo al instante.
+                    Escanea este código con tu cámara para cargar tu equipo en el celular con un solo clic.
                   </p>
 
                   <button
@@ -761,7 +792,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  exit={{ opacity: 0, scale: 1 }}
                   className="relative w-full max-w-lg bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4"
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -769,10 +800,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       <FileText className="w-4 h-4 text-purple-400" />
                       <h3 className="text-sm font-bold text-white">Importar Formato Showdown</h3>
                     </div>
-                    <button
-                      onClick={() => setIsImportModalOpen(false)}
-                      className="p-1 rounded-lg text-zinc-400 hover:text-white"
-                    >
+                    <button onClick={() => setIsImportModalOpen(false)} className="p-1 rounded-lg text-zinc-400 hover:text-white">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -793,7 +821,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                       Cancelar
                     </button>
                     <button
-                      onClick={handleImportShowdown}
+                      onClick={() => importFromShowdownText(importText)}
                       className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg shadow-purple-600/30 transition"
                     >
                       Cargar en Equipo
@@ -819,19 +847,15 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  exit={{ opacity: 0, scale: 1 }}
                   className="relative w-full max-w-lg bg-zinc-900 border border-white/15 rounded-3xl shadow-2xl z-50 p-6 space-y-4"
                 >
                   <div className="flex items-center justify-between pb-3 border-b border-white/10">
                     <div className="flex items-center gap-3">
                       <img src={editingMember.sprite} alt={editingMember.name} className="w-10 h-10 object-contain" />
                       <div>
-                        <h3 className="text-base font-bold text-white">
-                          Personalizar {editingMember.name}
-                        </h3>
-                        <span className="text-[10px] text-zinc-400">
-                          Ajusta objeto, naturaleza y los 4 ataques
-                        </span>
+                        <h3 className="text-base font-bold text-white">Personalizar {editingMember.name}</h3>
+                        <span className="text-[10px] text-zinc-400">Ajusta objeto, naturaleza y los 4 ataques</span>
                       </div>
                     </div>
                     <button onClick={() => setEditingMember(null)} className="p-1.5 rounded-xl text-zinc-400 hover:text-white">

@@ -24,7 +24,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-// Modales interactivos del proyecto
+// Modales interactivos
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
 import { DamageCalculatorModal } from "@/components/pokemon/damage-calculator-modal";
 import { PokemonComparator } from "@/components/pokemon/pokemon-comparator";
@@ -39,28 +39,27 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 
 import type { PokemonData } from "@/types/pokemon";
 
-// Versión del sistema: al cambiar este valor se dispara el globo para todos los jugadores
-const CURRENT_VERSION = "v1.4.1";
+// Versión del sistema
+const CURRENT_VERSION = "v1.5.0";
 
 const CHANGELOG = [
   {
-    version: "v1.4.1",
-    date: "Última actualización",
+    version: "v1.5.0",
+    date: "Última versión",
     highlights: [
-      "PokéWiki: Integración de movimientos reales por tipo elemental (Nivel, MT y Huevo) en toda la Pokédex.",
-      "PokéWiki: Drops oficiales auténticos de Cobblemon/Minecraft (eliminados los drops genéricos).",
-      "Team Builder: Matriz completa de coberturas y debilidades elementales de los 18 tipos.",
-      "Team Builder: Generador de QR Móvil para transferir y consultar tus equipos en el celular.",
-      "Guía de EVs: Simulador y calculadora exacta de Kills con soporte para Objetos Recios (+8) y Pokérus (×2).",
-      "Pasture & Crianza: Inclusión de todos los Objetos Recios y generador de comandos /pokegive de cría.",
+      "PWA Instalable: Soporte nativo para agregar Ultramoon a la pantalla de inicio en Android y iOS.",
+      "Team Builder: Comparte y abre equipos al instante mediante Enlace Directo comprimido en URL.",
+      "Calculadora de Captura: Condiciones de cuevas (Y < 60), turnos y estados alterados matemáticos de Cobblemon.",
+      "PokéWiki: Movimientos oficiales por tipo (Nivel, MT, Huevo) y drops auténticos de Minecraft.",
+      "Guía de EVs: Calculadora exacta de Kills con objetos recios (+8) y Pokérus (×2).",
     ],
   },
   {
-    version: "v1.3.0",
+    version: "v1.4.0",
     date: "Versión previa",
     highlights: [
-      "Calculadora de Daño con buscador dinámico, pantallas y climas.",
-      "Crafteo visual de Poké Balls 3x3 oficial de Cobblemon con sprites de referencia.",
+      "Team Builder: Matriz de cobertura y debilidades elementales de los 18 tipos.",
+      "Generador de QR Móvil para escanear y visualizar equipos en el celular.",
     ],
   },
 ];
@@ -87,7 +86,7 @@ const modules: ToolModule[] = [
     id: "team-builder",
     title: "Team Builder",
     badge: "6V6 VGC",
-    description: "Constructor con importador Showdown, matriz de tipos, QR móvil y comandos /pokegive.",
+    description: "Constructor con importador Showdown, enlace compartible, matriz de 18 tipos y QR móvil.",
     icon: Users,
     accent: "indigo",
   },
@@ -127,7 +126,7 @@ const modules: ToolModule[] = [
     id: "catch-calc",
     title: "Calculadora de Captura",
     badge: "CATCH RATE",
-    description: "Fórmula matemática de captura Cobblemon según salud, estados alterados y Poké Balls.",
+    description: "Fórmula matemática de captura Cobblemon según salud, cuevas (Y < 60) y Poké Balls.",
     icon: Crosshair,
     accent: "indigo",
   },
@@ -196,11 +195,18 @@ export default function Home() {
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
 
-  // Estados de notificación y changelog
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
 
   useEffect(() => {
+    // Si viene con parámetro de equipo, abrir Team Builder automáticamente
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("team")) {
+        setActiveModal("team-builder");
+      }
+    }
+
     const savedVersion = localStorage.getItem("ultramoon_seen_version");
     if (savedVersion !== CURRENT_VERSION) {
       setShowUpdateToast(true);
@@ -227,7 +233,6 @@ export default function Home() {
     window.location.reload();
   };
 
-  // Atajo ⌘K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -264,7 +269,7 @@ export default function Home() {
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
-        {/* Barra de Navegación */}
+        {/* Cabecera / Navegación */}
         <header className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-xl shadow-xl shadow-black/20">
           <div className="flex items-center gap-3.5">
             <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 shadow-lg shadow-purple-500/30 text-white font-black text-xl">
@@ -294,7 +299,7 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Buscador Rápido ⌘K */}
+            {/* Buscador ⌘K */}
             <button
               onClick={() => setIsSearchOpen(true)}
               className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-xs text-zinc-300 hover:text-white transition-all shadow-sm"
@@ -307,7 +312,7 @@ export default function Home() {
               </kbd>
             </button>
 
-            {/* Sonido */}
+            {/* Alternar sonido */}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
               className="p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition-all"
@@ -337,7 +342,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Hero Banner */}
+        {/* Hero Principal */}
         <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900/90 via-zinc-900/60 to-zinc-950/90 p-8 sm:p-12 backdrop-blur-2xl shadow-2xl shadow-purple-950/20">
           <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -355,7 +360,7 @@ export default function Home() {
             </h2>
 
             <p className="text-sm sm:text-base text-zinc-300/90 leading-relaxed">
-              Cálculo de daño oficial, coberturas defensivas, crianza con objetos recios, forja 3x3 de Poké Balls y exportación de comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
+              Cálculo de daño oficial, coberturas defensivas de 18 tipos, enlaces compartibles de equipos, forja 3x3 de Poké Balls y exportación de comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -407,14 +412,10 @@ export default function Home() {
                 >
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <div
-                        className={`p-2.5 rounded-xl transition-colors duration-300 ${style.iconBg}`}
-                      >
+                      <div className={`p-2.5 rounded-xl transition-colors duration-300 ${style.iconBg}`}>
                         <Icon className="w-5 h-5" />
                       </div>
-                      <span
-                        className={`px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase rounded-full border ${style.badge}`}
-                      >
+                      <span className={`px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase rounded-full border ${style.badge}`}>
                         {module.badge}
                       </span>
                     </div>
@@ -441,7 +442,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="pt-8 pb-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400">
-          <p>Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics</p>
+          <p>Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics · PWA Ready</p>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowChangelogModal(true)}
@@ -475,7 +476,7 @@ export default function Home() {
                   ¡Actualización {CURRENT_VERSION}!
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  Movimientos reales por tipo, drops Cobblemon auténticos y matriz de tipos.
+                  PWA instalable, enlaces compartibles de equipos y calculadora de captura avanzada.
                 </p>
               </div>
             </div>
@@ -516,12 +517,8 @@ export default function Home() {
                   <Sparkles className="w-5 h-5 text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">
-                    Historial de Novedades
-                  </h3>
-                  <span className="text-xs text-zinc-400">
-                    Últimas adiciones a Ultramoon Suite
-                  </span>
+                  <h3 className="text-lg font-bold text-white">Historial de Novedades</h3>
+                  <span className="text-xs text-zinc-400">Últimas adiciones a Ultramoon Suite</span>
                 </div>
               </div>
               <button
@@ -534,10 +531,7 @@ export default function Home() {
 
             <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
               {CHANGELOG.map((log) => (
-                <div
-                  key={log.version}
-                  className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2.5"
-                >
+                <div key={log.version} className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
                       {log.version}
@@ -576,51 +570,17 @@ export default function Home() {
       )}
 
       {/* Instancias de los Modales */}
-      <TeamBuilderModal
-        isOpen={activeModal === "team-builder"}
-        onClose={() => setActiveModal(null)}
-      />
+      <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
+      <DamageCalculatorModal isOpen={activeModal === "damage-calc"} onClose={() => setActiveModal(null)} />
+      <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />
+      <PastureSimulator isOpen={activeModal === "breeding"} onClose={() => setActiveModal(null)} />
+      <EVTrackerModal isOpen={activeModal === "ev-hunting"} onClose={() => setActiveModal(null)} />
+      <CaptureCalculatorModal isOpen={activeModal === "catch-calc"} onClose={() => setActiveModal(null)} />
+      <HabitatSearchModal isOpen={activeModal === "habitats"} onClose={() => setActiveModal(null)} />
+      <EvolutionGuideModal isOpen={activeModal === "evolutions"} onClose={() => setActiveModal(null)} />
+      <ApricornGuideModal isOpen={activeModal === "apricorns"} onClose={() => setActiveModal(null)} />
 
-      <DamageCalculatorModal
-        isOpen={activeModal === "damage-calc"}
-        onClose={() => setActiveModal(null)}
-      />
-
-      <PokemonComparator
-        isOpen={activeModal === "speed-tiers"}
-        onClose={() => setActiveModal(null)}
-      />
-
-      <PastureSimulator
-        isOpen={activeModal === "breeding"}
-        onClose={() => setActiveModal(null)}
-      />
-
-      <EVTrackerModal
-        isOpen={activeModal === "ev-hunting"}
-        onClose={() => setActiveModal(null)}
-      />
-
-      <CaptureCalculatorModal
-        isOpen={activeModal === "catch-calc"}
-        onClose={() => setActiveModal(null)}
-      />
-
-      <HabitatSearchModal
-        isOpen={activeModal === "habitats"}
-        onClose={() => setActiveModal(null)}
-      />
-
-      <EvolutionGuideModal
-        isOpen={activeModal === "evolutions"}
-        onClose={() => setActiveModal(null)}
-      />
-
-      <ApricornGuideModal
-        isOpen={activeModal === "apricorns"}
-        onClose={() => setActiveModal(null)}
-      />
-
+      {/* Buscador Global ⌘K */}
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
@@ -630,6 +590,7 @@ export default function Home() {
         }}
       />
 
+      {/* Ficha PokéWiki con GIFs y Shiny Toggle */}
       {selectedPokemon && (
         <PokemonDetailModal
           pokemon={selectedPokemon}
