@@ -40,35 +40,27 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 import type { PokemonData } from "@/types/pokemon";
 
 // Versión del sistema: al cambiar este valor se dispara el globo para todos los jugadores
-const CURRENT_VERSION = "v1.3.0";
+const CURRENT_VERSION = "v1.4.1";
 
 const CHANGELOG = [
   {
-    version: "v1.4.0",
-    date: "Hoy",
+    version: "v1.4.1",
+    date: "Última actualización",
     highlights: [
-      "Team Builder: Matriz de cobertura y debilidades elementales de los 18 tipos.",
-      "Team Builder: Generador de QR Móvil para transferir y ver equipos en el celular.",
-      "Guía de EVs: Calculadora exacta de Kills con soporte para Objetos Recios (+8) y Pokérus (x2).",
-      "Pasture Simulator: Inclusión de todos los Objetos Recios y generador de cría /pokegive.",
-      "PokéWiki / Búsqueda: Filtros dinámicos por Generación (Gen 1-9) y biomas de Minecraft.",
+      "PokéWiki: Integración de movimientos reales por tipo elemental (Nivel, MT y Huevo) en toda la Pokédex.",
+      "PokéWiki: Drops oficiales auténticos de Cobblemon/Minecraft (eliminados los drops genéricos).",
+      "Team Builder: Matriz completa de coberturas y debilidades elementales de los 18 tipos.",
+      "Team Builder: Generador de QR Móvil para transferir y consultar tus equipos en el celular.",
+      "Guía de EVs: Simulador y calculadora exacta de Kills con soporte para Objetos Recios (+8) y Pokérus (×2).",
+      "Pasture & Crianza: Inclusión de todos los Objetos Recios y generador de comandos /pokegive de cría.",
     ],
   },
-   {
+  {
     version: "v1.3.0",
     date: "Versión previa",
     highlights: [
       "Calculadora de Daño con buscador dinámico, pantallas y climas.",
       "Crafteo visual de Poké Balls 3x3 oficial de Cobblemon con sprites de referencia.",
-    ],
-  },
-  {
-    version: "v1.2.0",
-    date: "Versión previa",
-    highlights: [
-      "PokéWiki & Dex: Ficha completa con GIFs pixel art animados y selector de variantes Shiny.",
-      "Generador de comandos /pokegive listos para pegar en Minecraft.",
-      "Rediseño visual Cyber-Glassmorphism y atajo global ⌘K.",
     ],
   },
 ];
@@ -87,7 +79,7 @@ const modules: ToolModule[] = [
     id: "pokewiki",
     title: "PokéWiki & Dex",
     badge: "DATABASE",
-    description: "Enciclopedia Cobblemon: habilidades ocultas, movimientos por nivel/MT, estadísticas base y drops.",
+    description: "Enciclopedia Cobblemon: movimientos reales, habilidades ocultas, BST y drops auténticos.",
     icon: BookOpen,
     accent: "purple",
   },
@@ -95,7 +87,7 @@ const modules: ToolModule[] = [
     id: "team-builder",
     title: "Team Builder",
     badge: "6V6 VGC",
-    description: "Constructor 6v6 con importador Showdown, persistencia local y comandos /pokegive.",
+    description: "Constructor con importador Showdown, matriz de tipos, QR móvil y comandos /pokegive.",
     icon: Users,
     accent: "indigo",
   },
@@ -103,7 +95,7 @@ const modules: ToolModule[] = [
     id: "damage-calc",
     title: "Calculadora de Daño",
     badge: "BREAKPOINTS",
-    description: "Buscador de Pokémon, pantallas, climas de Minecraft, terrenos y tiradas de daño oficiales.",
+    description: "Buscador de especies, pantallas, climas de Minecraft, terrenos y tiradas de daño oficiales.",
     icon: Swords,
     accent: "rose",
   },
@@ -127,7 +119,7 @@ const modules: ToolModule[] = [
     id: "ev-hunting",
     title: "Guía de Caza de EVs",
     badge: "FARMEO",
-    description: "Rutas óptimas en Minecraft por bioma, horario y altura Y para maximizar tus 252 EVs.",
+    description: "Rutas óptimas en Minecraft por bioma y calculadora exacta de Kills con objetos recios.",
     icon: Compass,
     accent: "amber",
   },
@@ -143,7 +135,7 @@ const modules: ToolModule[] = [
     id: "habitats",
     title: "Buscador de Hábitats",
     badge: "SPAWNS",
-    description: "Localizador interactivo de Pokémon por biomas oficiales de Minecraft, horas y condiciones climáticas.",
+    description: "Localizador interactivo de Pokémon por biomas oficiales de Minecraft, horas y clima.",
     icon: MapPin,
     accent: "cyan",
   },
@@ -151,7 +143,7 @@ const modules: ToolModule[] = [
     id: "evolutions",
     title: "Evoluciones Especiales",
     badge: "MINECRAFT",
-    description: "Métodos evolutivos adaptados a Cobblemon: niveles de amistad, bloques de evolución y objetos clave.",
+    description: "Métodos evolutivos adaptados a Cobblemon: niveles de amistad, bloques y objetos clave.",
     icon: Sparkles,
     accent: "purple",
   },
@@ -204,7 +196,7 @@ export default function Home() {
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
 
-  // Estados del globo de notificación y modal de cambios
+  // Estados de notificación y changelog
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
 
@@ -235,7 +227,7 @@ export default function Home() {
     window.location.reload();
   };
 
-  // Atajo global de teclado ⌘K / Ctrl+K
+  // Atajo ⌘K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -272,7 +264,7 @@ export default function Home() {
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
-        {/* Cabecera / Barra de Navegación */}
+        {/* Barra de Navegación */}
         <header className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-xl shadow-xl shadow-black/20">
           <div className="flex items-center gap-3.5">
             <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 shadow-lg shadow-purple-500/30 text-white font-black text-xl">
@@ -315,7 +307,7 @@ export default function Home() {
               </kbd>
             </button>
 
-            {/* Alternar sonido */}
+            {/* Sonido */}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
               className="p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition-all"
@@ -345,7 +337,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Hero Principal */}
+        {/* Hero Banner */}
         <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900/90 via-zinc-900/60 to-zinc-950/90 p-8 sm:p-12 backdrop-blur-2xl shadow-2xl shadow-purple-950/20">
           <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -363,7 +355,7 @@ export default function Home() {
             </h2>
 
             <p className="text-sm sm:text-base text-zinc-300/90 leading-relaxed">
-              Cálculo de daño con pantallas y climas, importador Showdown, crianza con objetos recios, forja de Poké Balls y exportación de comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
+              Cálculo de daño oficial, coberturas defensivas, crianza con objetos recios, forja 3x3 de Poké Balls y exportación de comandos <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 font-mono text-xs">/pokegive</code>.
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -447,7 +439,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pie de página con verificación de versión */}
+        {/* Footer */}
         <footer className="pt-8 pb-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400">
           <p>Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics</p>
           <div className="flex items-center gap-3">
@@ -480,10 +472,10 @@ export default function Home() {
               </div>
               <div>
                 <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  ¡Nueva Versión {CURRENT_VERSION}!
+                  ¡Actualización {CURRENT_VERSION}!
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  Nuevos buscadores en daño, importador Showdown y crafteos Cobblemon.
+                  Movimientos reales por tipo, drops Cobblemon auténticos y matriz de tipos.
                 </p>
               </div>
             </div>
@@ -583,7 +575,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Instancias de los Modales Conectados */}
+      {/* Instancias de los Modales */}
       <TeamBuilderModal
         isOpen={activeModal === "team-builder"}
         onClose={() => setActiveModal(null)}
@@ -629,7 +621,6 @@ export default function Home() {
         onClose={() => setActiveModal(null)}
       />
 
-      {/* Buscador Global ⌘K */}
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
@@ -639,7 +630,6 @@ export default function Home() {
         }}
       />
 
-      {/* Ficha PokéWiki con GIFs y Shiny Toggle */}
       {selectedPokemon && (
         <PokemonDetailModal
           pokemon={selectedPokemon}
