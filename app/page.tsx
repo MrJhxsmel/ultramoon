@@ -279,15 +279,21 @@ export default function Home() {
   const [volume, setVolume] = useState<number>(35);
   const [isVolumePopoverOpen, setIsVolumePopoverOpen] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
+  const themeRef = useRef<HTMLDivElement>(null);
 
-  // Especie destacada dinámica
-  const [featuredPokemon, setFeaturedPokemon] = useState({
+  // Estado Shiny para la especie destacada
+  const [isFeaturedShiny, setIsFeaturedShiny] = useState(false);
+
+  // Especie destacada dinámica con URLs estables y seguras
+  const featuredPokemon = {
     name: "Garchomp",
     types: ["Dragon", "Ground"],
     tier: "OU Meta",
-    sprite: "https://play.pokemonshowdown.com/sprites/ani/garchomp.gif",
+    sprite: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/445.png",
+    shinySprite: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/445.png",
+    fallbackSprite: "https://play.pokemonshowdown.com/sprites/dex/garchomp.png",
     id: 445,
-  });
+  };
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("ultramoon_theme") as ThemeMode | null;
@@ -295,6 +301,17 @@ export default function Home() {
 
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
     if (savedVol !== null) setVolume(Number(savedVol));
+
+    // Cerrar popovers al hacer click fuera
+    const handleClickOutside = (e: MouseEvent) => {
+      if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
+        setIsThemeMenuOpen(false);
+      }
+      if (volumeRef.current && !volumeRef.current.contains(e.target as Node)) {
+        setIsVolumePopoverOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
 
     // Atajos de teclado pro
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -312,7 +329,10 @@ export default function Home() {
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const handleSelectTheme = (theme: ThemeMode) => {
@@ -357,7 +377,7 @@ export default function Home() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
         {/* Cabecera Flotante con Glassmorphism */}
-        <header className={`flex items-center justify-between p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl border transition-all duration-300 ${
+        <header className={`flex items-center justify-between p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl border transition-all duration-300 relative z-30 ${
           isLight ? "bg-white/80 border-slate-200/80 shadow-lg shadow-slate-200/50" : "bg-zinc-950/60 border-white/10 shadow-2xl shadow-black/40"
         }`}>
           {/* Logo y Nombre */}
@@ -401,7 +421,7 @@ export default function Home() {
             </button>
 
             {/* Selector de Temas */}
-            <div className="relative">
+            <div className="relative" ref={themeRef}>
               <button
                 onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
                 className={`p-2 rounded-2xl border transition ${
@@ -418,7 +438,7 @@ export default function Home() {
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 6 }}
-                    className={`absolute right-0 top-full mt-2 w-48 p-2 rounded-2xl border shadow-2xl z-50 space-y-1 backdrop-blur-2xl ${
+                    className={`absolute right-0 top-full mt-2 w-52 p-2 rounded-2xl border shadow-2xl z-50 space-y-1 backdrop-blur-2xl ${
                       isLight ? "bg-white/95 border-slate-200 text-slate-800" : "bg-zinc-950/95 border-white/10 text-zinc-200"
                     }`}
                   >
@@ -530,27 +550,60 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Tarjeta Interactiva de Especie Destacada */}
+            {/* Tarjeta Interactiva de Especie Destacada (Con Artwork HD y Switch Shiny) */}
             <motion.div
               whileHover={{ y: -4 }}
-              onClick={() => {
-                playPokemonCry(featuredPokemon.id);
-                setIsSearchOpen(true);
-              }}
-              className={`p-4 sm:p-5 rounded-3xl border flex items-center gap-4 cursor-pointer transition shadow-xl group ${
+              className={`p-4 sm:p-5 rounded-3xl border flex items-center gap-4 transition shadow-xl group relative ${
                 isLight ? "bg-white border-slate-200 hover:border-purple-400" : "bg-zinc-900/80 border-white/10 hover:border-purple-500/50"
               }`}
             >
-              <img
-                src={featuredPokemon.sprite}
-                alt={featuredPokemon.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-xl pixelated group-hover:scale-110 transition duration-300"
-              />
+              <div
+                onClick={() => {
+                  playPokemonCry(featuredPokemon.id);
+                  setIsSearchOpen(true);
+                }}
+                className="cursor-pointer"
+              >
+                <img
+                  src={isFeaturedShiny ? featuredPokemon.shinySprite : featuredPokemon.sprite}
+                  alt={featuredPokemon.name}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = featuredPokemon.fallbackSprite;
+                  }}
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-xl group-hover:scale-110 transition duration-300"
+                />
+              </div>
+
               <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase font-bold text-purple-400 block tracking-wider">
-                  ✦ Especie Destacada
-                </span>
-                <h4 className="text-base sm:text-lg font-black">{featuredPokemon.name}</h4>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-mono uppercase font-bold text-purple-400 block tracking-wider">
+                    ✦ Especie Destacada
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsFeaturedShiny(!isFeaturedShiny);
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-bold border transition ${
+                      isFeaturedShiny
+                        ? "bg-amber-400 text-black border-amber-300 shadow-md shadow-amber-400/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:text-white"
+                    }`}
+                  >
+                    {isFeaturedShiny ? "★ Shiny" : "Normal"}
+                  </button>
+                </div>
+
+                <h4
+                  onClick={() => {
+                    playPokemonCry(featuredPokemon.id);
+                    setIsSearchOpen(true);
+                  }}
+                  className="text-base sm:text-lg font-black cursor-pointer hover:text-purple-400 transition"
+                >
+                  {featuredPokemon.name}
+                </h4>
+
                 <div className="flex items-center gap-1">
                   {featuredPokemon.types.map((t) => (
                     <span key={t} className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/20 text-purple-300">
@@ -558,9 +611,16 @@ export default function Home() {
                     </span>
                   ))}
                 </div>
-                <span className="text-[11px] opacity-60 block pt-1 font-medium group-hover:text-purple-400 transition">
+
+                <button
+                  onClick={() => {
+                    playPokemonCry(featuredPokemon.id);
+                    setIsSearchOpen(true);
+                  }}
+                  className="text-[11px] opacity-60 block pt-1 font-medium group-hover:text-purple-400 transition text-left"
+                >
                   Toca para oír grito y ver ficha →
-                </span>
+                </button>
               </div>
             </motion.div>
           </div>
