@@ -18,6 +18,10 @@ import {
   VolumeX,
   ExternalLink,
   Zap,
+  Bell,
+  RefreshCw,
+  X,
+  CheckCircle2,
 } from "lucide-react";
 
 // Modales interactivos del proyecto
@@ -34,6 +38,23 @@ import { SearchModal } from "@/components/pokemon/search-modal";
 import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 
 import type { PokemonData } from "@/types/pokemon";
+
+// Versión actual del sistema (cámbiala al publicar mejoras para disparar el globo)
+const CURRENT_VERSION = "v1.2.0";
+
+const CHANGELOG = [
+  {
+    version: "v1.2.0",
+    date: "Hoy",
+    highlights: [
+      "Nueva sección PokéWiki & Dex integrada.",
+      "Sprites animados en Pixel Art (GIF) para cada Pokémon.",
+      "Selector Shiny: comprueba la variante brillante y genera el comando /pokegive específico.",
+      "Pestañas de movimientos por nivel, MT y estadísticas base detalladas.",
+      "Rediseño visual Cyber-Glassmorphism con paleta y buscador ⌘K.",
+    ],
+  },
+];
 
 interface ToolModule {
   id: string;
@@ -166,6 +187,38 @@ export default function Home() {
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
 
+  // Estados del globo de actualización y modal de notas de versión
+  const [showUpdateToast, setShowUpdateToast] = useState(false);
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
+
+  useEffect(() => {
+    // Comprobar la versión guardada en el cliente
+    const savedVersion = localStorage.getItem("ultramoon_seen_version");
+    if (savedVersion !== CURRENT_VERSION) {
+      setShowUpdateToast(true);
+    }
+  }, []);
+
+  const handleDismissToast = () => {
+    setShowUpdateToast(false);
+    localStorage.setItem("ultramoon_seen_version", CURRENT_VERSION);
+  };
+
+  const handleOpenChangelog = () => {
+    setShowChangelogModal(true);
+    handleDismissToast();
+  };
+
+  const handleForceHardReload = () => {
+    if ("caches" in window) {
+      caches.keys().then((names) => {
+        names.forEach((name) => caches.delete(name));
+      });
+    }
+    localStorage.setItem("ultramoon_seen_version", CURRENT_VERSION);
+    window.location.reload();
+  };
+
   // Atajo de teclado ⌘K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -218,6 +271,13 @@ export default function Home() {
                 <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                   Cobblemon Suite
                 </span>
+                <button
+                  onClick={() => setShowChangelogModal(true)}
+                  className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition"
+                  title="Ver registro de versiones"
+                >
+                  {CURRENT_VERSION}
+                </button>
               </div>
               <p className="text-xs text-zinc-400 hidden sm:block">
                 Suite táctica y analítica competitiva para Minecraft
@@ -316,7 +376,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Grilla de Herramientas y Enciclopedia */}
+        {/* Grilla de Herramientas */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold tracking-tight text-zinc-200 flex items-center gap-2">
@@ -371,13 +431,141 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pie de página */}
-        <footer className="pt-8 pb-4 text-center border-t border-white/5">
-          <p className="text-xs text-zinc-400">
-            Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics
-          </p>
+        {/* Pie de página con botón de comprobación */}
+        <footer className="pt-8 pb-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400">
+          <p>Ultramoon Cobblemon Competitive Suite · Gen 9 Mechanics</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowChangelogModal(true)}
+              className="hover:text-purple-300 transition underline underline-offset-4"
+            >
+              Registro de Cambios ({CURRENT_VERSION})
+            </button>
+            <span>•</span>
+            <button
+              onClick={handleForceHardReload}
+              className="flex items-center gap-1.5 text-purple-400 hover:text-purple-300 transition font-medium"
+              title="Borrar caché de la app y recargar"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Forzar actualización limpia</span>
+            </button>
+          </div>
         </footer>
       </div>
+
+      {/* GLOBO FLOTANTE DE NOTIFICACIÓN DE ACTUALIZACIÓN */}
+      {showUpdateToast && (
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-2xl bg-zinc-900/95 border border-purple-500/40 p-4 shadow-2xl shadow-purple-950/60 backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-300 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                <Bell className="w-4 h-4 animate-bounce" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  ¡Nueva Versión {CURRENT_VERSION}!
+                </h4>
+                <p className="text-[11px] text-zinc-400">
+                  PokéWiki con GIFs animados, selector Shiny y fixes.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleDismissToast}
+              className="p-1 rounded-lg text-zinc-500 hover:text-white transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+            <button
+              onClick={handleOpenChangelog}
+              className="flex-1 py-1.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition shadow-md shadow-purple-600/30"
+            >
+              Ver Novedades
+            </button>
+            <button
+              onClick={handleForceHardReload}
+              className="py-1.5 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs border border-white/10 transition flex items-center gap-1"
+              title="Vaciar caché y recargar"
+            >
+              <RefreshCw className="w-3 h-3 text-purple-400" />
+              <span>Limpiar Caché</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE REGISTRO DE CAMBIOS / NOVEDADES */}
+      {showChangelogModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-white/10 p-6 sm:p-8 shadow-2xl shadow-purple-950/40 space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">
+                    Historial de Novedades
+                  </h3>
+                  <span className="text-xs text-zinc-400">
+                    Últimas adiciones a Ultramoon Suite
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowChangelogModal(false)}
+                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+              {CHANGELOG.map((log) => (
+                <div
+                  key={log.version}
+                  className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      {log.version}
+                    </span>
+                    <span className="text-[11px] text-zinc-500">{log.date}</span>
+                  </div>
+                  <ul className="space-y-2 text-xs text-zinc-300">
+                    {log.highlights.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 flex justify-between items-center border-t border-white/10">
+              <button
+                onClick={handleForceHardReload}
+                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-purple-400" />
+                <span>¿No ves los cambios? Forzar recarga</span>
+              </button>
+              <button
+                onClick={() => setShowChangelogModal(false)}
+                className="px-5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-white transition"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Instancias de los Modales Conectados */}
       <TeamBuilderModal
@@ -425,7 +613,6 @@ export default function Home() {
         onClose={() => setActiveModal(null)}
       />
 
-      {/* Buscador de Especies (Actúa como portal de la PokéWiki) */}
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
@@ -435,7 +622,6 @@ export default function Home() {
         }}
       />
 
-      {/* Ficha Completa PokéWiki (Estadísticas, Habilidades, Moves y Drops) */}
       {selectedPokemon && (
         <PokemonDetailModal
           pokemon={selectedPokemon}
