@@ -24,7 +24,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-// Modales interactivos
+// Modales interactivos del proyecto
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
 import { DamageCalculatorModal } from "@/components/pokemon/damage-calculator-modal";
 import { PokemonComparator } from "@/components/pokemon/pokemon-comparator";
@@ -40,29 +40,28 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 import type { PokemonData } from "@/types/pokemon";
 
 // Versión del sistema
-const CURRENT_VERSION = "v1.7.0";
+const CURRENT_VERSION = "v1.7.1";
 
 const CHANGELOG = [
   {
-    version: "v1.7.0",
-    date: "Última versión",
+    version: "v1.7.1",
+    date: "Última actualización",
     highlights: [
-      "Buscador Inverso de Drops: Localiza qué Pokémon de Cobblemon arroja cada material de Minecraft (Ender Pearls, Cobre, etc.).",
-      "Exportador de Ficha PNG: Genera y descarga una tarjeta visual de alta calidad de tu equipo con un clic.",
-      "Team Builder: Presets competitivos Smogon y VGC integrados.",
-      "Crianza / Pasture: Simulador de IVs heredados en vivo y probabilidades Gen 9.",
-      "Evoluciones Especiales: Guía adaptada a bloques de Minecraft y regla de Amistad (220).",
+      "Hábitats & Drops: Clic funcional en cualquier Pokémon para abrir directamente su ficha completa en la PokéWiki.",
+      "Optimización de Rendimiento: Carga bajo demanda de sprites con lazy loading para reducir consumo de recursos.",
+      "Buscador Inverso: Catálogo de drops con imágenes y previsualización de especies que sueltan cada material.",
+      "Team Builder: Exportador visual a imagen PNG de alta resolución con cuadrícula 6v6 y badges elementales.",
     ],
   },
   {
-    version: "v1.6.0",
+    version: "v1.7.0",
     date: "Versión previa",
     highlights: [
-      "Presets Smogon automáticos y simulación de herencia de IVs.",
+      "Buscador Inverso de Drops de Minecraft y exportador PNG de equipos.",
+      "Presets competitivos Smogon y simulación de herencia de IVs en vivo.",
     ],
   },
 ];
-
 
 interface ToolModule {
   id: string;
@@ -86,7 +85,7 @@ const modules: ToolModule[] = [
     id: "team-builder",
     title: "Team Builder",
     badge: "6V6 VGC",
-    description: "Constructor con importador Showdown, enlace compartible, matriz de 18 tipos y QR móvil.",
+    description: "Constructor con importador Showdown, enlace compartible, descarga en PNG y QR móvil.",
     icon: Users,
     accent: "indigo",
   },
@@ -133,8 +132,8 @@ const modules: ToolModule[] = [
   {
     id: "habitats",
     title: "Buscador de Hábitats",
-    badge: "SPAWNS",
-    description: "Localizador interactivo de Pokémon por biomas oficiales de Minecraft, horas y clima.",
+    badge: "SPAWNS & DROPS",
+    description: "Localizador interactivo de Pokémon por biomas y buscador inverso de drops de Minecraft.",
     icon: MapPin,
     accent: "cyan",
   },
@@ -142,7 +141,7 @@ const modules: ToolModule[] = [
     id: "evolutions",
     title: "Evoluciones Especiales",
     badge: "MINECRAFT",
-    description: "Métodos evolutivos adaptados a Cobblemon: niveles de amistad, bloques y objetos clave.",
+    description: "Métodos evolutivos adaptados a Cobblemon: niveles de amistad (220), bloques y objetos.",
     icon: Sparkles,
     accent: "purple",
   },
@@ -199,7 +198,6 @@ export default function Home() {
   const [showChangelogModal, setShowChangelogModal] = useState(false);
 
   useEffect(() => {
-    // Si viene con parámetro de equipo, abrir Team Builder automáticamente
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("team")) {
@@ -476,7 +474,7 @@ export default function Home() {
                   ¡Actualización {CURRENT_VERSION}!
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  PWA instalable, enlaces compartibles de equipos y calculadora de captura avanzada.
+                  Clic interactivo en hábitats para abrir la PokéWiki y optimización de carga de imágenes.
                 </p>
               </div>
             </div>
@@ -576,7 +574,16 @@ export default function Home() {
       <PastureSimulator isOpen={activeModal === "breeding"} onClose={() => setActiveModal(null)} />
       <EVTrackerModal isOpen={activeModal === "ev-hunting"} onClose={() => setActiveModal(null)} />
       <CaptureCalculatorModal isOpen={activeModal === "catch-calc"} onClose={() => setActiveModal(null)} />
-      <HabitatSearchModal isOpen={activeModal === "habitats"} onClose={() => setActiveModal(null)} />
+
+      {/* Conexión directa del prop onSelectPokemon para abrir la PokéWiki */}
+      <HabitatSearchModal
+        isOpen={activeModal === "habitats"}
+        onClose={() => setActiveModal(null)}
+        onSelectPokemon={(poke) => {
+          setSelectedPokemon(poke);
+        }}
+      />
+
       <EvolutionGuideModal isOpen={activeModal === "evolutions"} onClose={() => setActiveModal(null)} />
       <ApricornGuideModal isOpen={activeModal === "apricorns"} onClose={() => setActiveModal(null)} />
 
