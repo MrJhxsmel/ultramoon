@@ -27,6 +27,8 @@ import {
   LogOut,
   Lock,
   Cloud,
+  Crown,
+  Shield,
 } from "lucide-react";
 
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
@@ -48,6 +50,8 @@ import { AuthModal } from "@/components/auth/auth-modal";
 import { ProfileModal } from "@/components/profile/profile-modal";
 import { ExportCommandsModal } from "@/components/team-builder/export-commands-modal";
 import { EvTrackerCloudModal } from "@/components/mechanics/ev-tracker-cloud-modal";
+import { SubscriptionModal } from "@/components/subscription/subscription-modal";
+import { AdminDashboardModal } from "@/components/admin/admin-dashboard-modal";
 import { supabase } from "@/lib/supabase";
 
 import type { PokemonData } from "@/types/pokemon";
@@ -112,6 +116,7 @@ const THEMES: Record<ThemeMode, ThemeConfig> = {
 
 interface ToolModule {
   id: string;
+  flagKey?: string;
   title: string;
   category: "competitive" | "minecraft" | "breeding";
   badge: string;
@@ -120,7 +125,6 @@ interface ToolModule {
   gradient: string;
   shadowColor: string;
   isNew?: boolean;
-  requiresAuth?: boolean;
 }
 
 const MODULES: ToolModule[] = [
@@ -136,10 +140,11 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "team-builder",
+    flagKey: "cloud_team_builder",
     title: "Team Builder & Matchups",
     category: "competitive",
-    badge: "6V6 + EXPORT",
-    description: "Tablero interactivo, descarga de tarjeta en PNG, cores FWG/DSF y generador /pokegive.",
+    badge: "6V6 + CLOUD",
+    description: "Tablero interactivo, descarga de tarjeta en PNG, cores FWG/DSF y planes contra arquetipos meta.",
     icon: Users,
     gradient: "from-indigo-500/20 via-blue-500/10 to-transparent",
     shadowColor: "group-hover:shadow-indigo-500/20",
@@ -166,6 +171,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "ev-hunting",
+    flagKey: "cloud_ev_tracker",
     title: "Caza de EVs en la Nube",
     category: "breeding",
     badge: "CLOUD SYNC",
@@ -174,10 +180,10 @@ const MODULES: ToolModule[] = [
     gradient: "from-yellow-500/20 via-amber-500/10 to-transparent",
     shadowColor: "group-hover:shadow-yellow-500/20",
     isNew: true,
-    requiresAuth: true,
   },
   {
     id: "export-commands",
+    flagKey: "export_commands",
     title: "Generador de Comandos Cobblemon",
     category: "minecraft",
     badge: "/POKEGIVE PRO",
@@ -186,7 +192,6 @@ const MODULES: ToolModule[] = [
     gradient: "from-fuchsia-500/20 via-purple-500/10 to-transparent",
     shadowColor: "group-hover:shadow-fuchsia-500/20",
     isNew: true,
-    requiresAuth: true,
   },
   {
     id: "weather-terrains",
@@ -240,6 +245,7 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "breeding",
+    flagKey: "pasture_simulator",
     title: "Pasture & Crianza",
     category: "breeding",
     badge: "GEN 9",
@@ -287,20 +293,27 @@ export default function Home() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCommandsModalOpen, setIsCommandsModalOpen] = useState(false);
   const [isEvCloudModalOpen, setIsEvCloudModalOpen] = useState(false);
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
+  // Estados de Usuario y Perfil
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
 
+  // Temas
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<"all" | "competitive" | "minecraft" | "breeding">("all");
 
+  // Volumen
   const [volume, setVolume] = useState<number>(35);
   const [isVolumePopoverOpen, setIsVolumePopoverOpen] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
 
+  // Especie Destacada
   const [isFeaturedShiny, setIsFeaturedShiny] = useState(false);
   const featuredPokemon = {
     name: "Garchomp",
@@ -332,12 +345,27 @@ export default function Home() {
     } catch (e) {}
   };
 
+  const loadFeatureFlags = async () => {
+    try {
+      const { data } = await supabase.from("feature_flags").select("*");
+      if (data) {
+        const flags: Record<string, boolean> = {};
+        data.forEach((f) => {
+          flags[f.id] = f.is_premium;
+        });
+        setFeatureFlags(flags);
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     const savedTheme = localStorage.getItem("ultramoon_theme") as ThemeMode | null;
     if (savedTheme && THEMES[savedTheme]) setCurrentTheme(savedTheme);
 
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
     if (savedVol !== null) setVolume(Number(savedVol));
+
+    loadFeatureFlags();
 
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) {
@@ -349,8 +377,11 @@ export default function Home() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user ?? null;
       setCurrentUser(user);
-      if (user) loadUserProfile(user.id);
-      else setUserProfile(null);
+      if (user) {
+        loadUserProfile(user.id);
+      } else {
+        setUserProfile(null);
+      }
     });
 
     const handleClickOutside = (e: MouseEvent) => {
@@ -436,6 +467,45 @@ export default function Home() {
     setUserProfile(null);
   };
 
+  const isVipUser = userProfile?.subscription_status === "vip" || userProfile?.role === "admin";
+
+  const isModuleLocked = (module: ToolModule) => {
+    if (!module.flagKey) return false;
+    const isFlagPremium = Boolean(featureFlags[module.flagKey]);
+    if (!isFlagPremium) return false;
+    return !isVipUser;
+  };
+
+  const handleModuleClick = (module: ToolModule) => {
+    if (module.id === "pokewiki") {
+      setIsSearchOpen(true);
+      return;
+    }
+
+    if (isModuleLocked(module)) {
+      if (!currentUser) {
+        setIsAuthOpen(true);
+      } else {
+        setIsSubModalOpen(true);
+      }
+      return;
+    }
+
+    if (module.id === "ev-hunting") {
+      if (!currentUser) setIsAuthOpen(true);
+      else setIsEvCloudModalOpen(true);
+      return;
+    }
+
+    if (module.id === "export-commands") {
+      if (!currentUser) setIsAuthOpen(true);
+      else setIsCommandsModalOpen(true);
+      return;
+    }
+
+    setActiveModal(module.id);
+  };
+
   const filteredModules = useMemo(() => {
     if (activeCategory === "all") return MODULES;
     return MODULES.filter((m) => m.category === activeCategory);
@@ -464,6 +534,7 @@ export default function Home() {
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+        {/* Cabecera Principal */}
         <header className={`flex items-center justify-between p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl border transition-all duration-300 relative z-30 ${
           isLight ? "bg-white/80 border-slate-200/80 shadow-lg shadow-slate-200/50" : "bg-zinc-950/60 border-white/10 shadow-2xl shadow-black/40"
         }`}>
@@ -485,12 +556,13 @@ export default function Home() {
                 <span className="text-[10px] font-mono opacity-60 hidden sm:inline">{CURRENT_VERSION}</span>
               </div>
               <p className="text-xs opacity-60 hidden sm:block">
-                Suite analítica competitiva, monturas y climas para Cobblemon
+                Suite analítica competitiva, monturas, climas y membresías para Cobblemon
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Buscador Rápido */}
             <button
               onClick={() => setIsSearchOpen(true)}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border text-xs font-semibold transition ${
@@ -504,6 +576,33 @@ export default function Home() {
               <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 font-mono">⌘K</kbd>
             </button>
 
+            {/* BOTÓN ADMIN PANEL EXCLUSIVO (Solo para ti) */}
+            {userProfile?.role === "admin" && (
+              <button
+                onClick={() => setIsAdminModalOpen(true)}
+                className="px-3 py-1.5 rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-black flex items-center gap-1.5 transition shadow-md shadow-purple-600/20"
+                title="Abrir Dashboard de Administrador"
+              >
+                <Shield className="w-3.5 h-3.5 text-purple-400" />
+                <span className="hidden sm:inline">Panel Owner</span>
+              </button>
+            )}
+
+            {/* BOTÓN MEMBRESÍA VIP YAPE */}
+            <button
+              onClick={() => setIsSubModalOpen(true)}
+              className={`px-3 py-1.5 rounded-2xl border text-xs font-black flex items-center gap-1.5 transition ${
+                isVipUser
+                  ? "bg-amber-400/20 border-amber-400/40 text-amber-300 shadow-md shadow-amber-400/20"
+                  : "bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/30 text-amber-300"
+              }`}
+              title="Ver suscripciones y pagar con Yape"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-400" />
+              <span>{isVipUser ? "VIP Activo" : "VIP Yape"}</span>
+            </button>
+
+            {/* Botón de Autenticación / Perfil */}
             {currentUser ? (
               <div className="flex items-center gap-2">
                 <button
@@ -557,6 +656,7 @@ export default function Home() {
               </button>
             )}
 
+            {/* Selector de Temas */}
             <div className="relative" ref={themeRef}>
               <button
                 onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
@@ -600,6 +700,7 @@ export default function Home() {
               </AnimatePresence>
             </div>
 
+            {/* Control de Volumen */}
             <div className="relative" ref={volumeRef}>
               <button
                 onClick={() => setIsVolumePopoverOpen(!isVolumePopoverOpen)}
@@ -643,7 +744,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* HERO BANNER CON NOVEDADES CLOUD */}
+        {/* HERO BANNER */}
         <section className={`relative overflow-hidden rounded-3xl border p-6 sm:p-10 backdrop-blur-xl transition-all duration-300 ${
           isLight
             ? "bg-gradient-to-br from-white via-purple-50/50 to-indigo-50/40 border-slate-200 shadow-xl"
@@ -653,7 +754,7 @@ export default function Home() {
             <div className="max-w-xl space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/15 border border-purple-500/30 text-purple-300">
                 <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-spin" style={{ animationDuration: "6s" }} />
-                <span>Cobblemon Gen 9 Meta Suite · Sincronización en la Nube</span>
+                <span>Cobblemon Gen 9 Meta Suite · Sincronización Cloud</span>
               </div>
 
               <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
@@ -664,7 +765,7 @@ export default function Home() {
               </h2>
 
               <p className="text-sm sm:text-base opacity-80 leading-relaxed">
-                Arma alineaciones 6v6, exporta comandos <code className="text-purple-300 font-mono text-xs">/pokegive</code> para Minecraft y guarda tus metas de EVs en tu cuenta de Supabase.
+                Arma alineaciones 6v6, exporta comandos <code className="text-purple-300 font-mono text-xs">/pokegive</code> para Minecraft y guarda tus metas de EVs en tu cuenta de Supabase con membresía VIP.
               </p>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-2">
@@ -678,8 +779,12 @@ export default function Home() {
 
                 <button
                   onClick={() => {
-                    if (currentUser) setIsEvCloudModalOpen(true);
-                    else setIsAuthOpen(true);
+                    if (isModuleLocked(MODULES[4])) {
+                      if (!currentUser) setIsAuthOpen(true);
+                      else setIsSubModalOpen(true);
+                    } else {
+                      setIsEvCloudModalOpen(true);
+                    }
                   }}
                   className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition flex items-center gap-2 ${
                     isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
@@ -694,8 +799,12 @@ export default function Home() {
 
                 <button
                   onClick={() => {
-                    if (currentUser) setIsCommandsModalOpen(true);
-                    else setIsAuthOpen(true);
+                    if (isModuleLocked(MODULES[5])) {
+                      if (!currentUser) setIsAuthOpen(true);
+                      else setIsSubModalOpen(true);
+                    } else {
+                      setIsCommandsModalOpen(true);
+                    }
                   }}
                   className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition flex items-center gap-2 ${
                     isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
@@ -816,43 +925,20 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Cuadrícula de Módulos con Indicadores Visuales Claros */}
+        {/* Cuadrícula de Módulos */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredModules.map((module: ToolModule) => {
             const Icon = module.icon;
-            const isLocked = module.requiresAuth && !currentUser;
+            const locked = isModuleLocked(module);
 
             return (
               <motion.div
                 key={module.id}
                 whileHover={{ y: -6, scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                onClick={() => {
-                  if (module.id === "pokewiki") {
-                    setIsSearchOpen(true);
-                    return;
-                  }
-
-                  // Si requiere login y no hay cuenta activa, abrir modal de autenticación
-                  if (module.requiresAuth && !currentUser) {
-                    setIsAuthOpen(true);
-                    return;
-                  }
-
-                  // Mapeo directo a modales cloud
-                  if (module.id === "ev-hunting") {
-                    setIsEvCloudModalOpen(true);
-                    return;
-                  }
-                  if (module.id === "export-commands") {
-                    setIsCommandsModalOpen(true);
-                    return;
-                  }
-
-                  setActiveModal(module.id);
-                }}
+                onClick={() => handleModuleClick(module)}
                 className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor} ${
-                  isLocked ? "ring-1 ring-amber-500/20" : ""
+                  locked ? "ring-1 ring-amber-500/20" : ""
                 }`}
               >
                 <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${module.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
@@ -861,30 +947,28 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 relative">
                       <Icon className="w-6 h-6 text-purple-400 group-hover:text-white transition" />
-                      {isLocked && (
-                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-md">
+                      {locked && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-400 text-black flex items-center justify-center shadow-md">
                           <Lock className="w-3 h-3" />
                         </div>
                       )}
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {/* Badge NUEVO destacado */}
                       {module.isNew && (
                         <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 shadow-sm animate-pulse">
                           ✦ NUEVO
                         </span>
                       )}
 
-                      {/* Badge REQUIERE LOGIN si el usuario es invitado */}
-                      {isLocked ? (
+                      {locked ? (
                         <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center gap-1">
                           <Lock className="w-3 h-3" />
-                          <span>Requiere Login</span>
+                          <span>Requiere VIP</span>
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-white/5 border border-white/10 opacity-80 flex items-center gap-1">
-                          {module.requiresAuth && <Cloud className="w-3 h-3 text-purple-400" />}
+                          {module.flagKey && <Cloud className="w-3 h-3 text-purple-400" />}
                           <span>{module.badge}</span>
                         </span>
                       )}
@@ -894,9 +978,9 @@ export default function Home() {
                   <div>
                     <h3 className="text-base font-bold tracking-tight group-hover:text-purple-300 transition-colors flex items-center gap-2">
                       <span>{module.title}</span>
-                      {module.requiresAuth && (
+                      {module.flagKey && (
                         <span className="text-[10px] text-purple-400 font-mono">
-                          [CLOUD]
+                          [PRO]
                         </span>
                       )}
                     </h3>
@@ -907,8 +991,8 @@ export default function Home() {
                 </div>
 
                 <div className="relative z-10 mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs font-semibold opacity-60 group-hover:opacity-100 transition">
-                  <span className={isLocked ? "text-amber-300" : ""}>
-                    {isLocked ? "Inicia sesión para desbloquear" : "Abrir simulador"}
+                  <span className={locked ? "text-amber-300" : ""}>
+                    {locked ? "Desbloquear con Membresía VIP" : "Abrir simulador"}
                   </span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
                 </div>
@@ -939,7 +1023,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Modales de Autenticación y Perfil */}
+      {/* Modales de Autenticación, Perfil y Suscripciones */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       <ProfileModal
@@ -951,6 +1035,23 @@ export default function Home() {
           if (updated.preferred_theme) setCurrentTheme(updated.preferred_theme);
           if (updated.sound_volume !== undefined) setVolume(updated.sound_volume);
         }}
+      />
+
+      <SubscriptionModal
+        isOpen={isSubModalOpen}
+        onClose={() => setIsSubModalOpen(false)}
+        user={currentUser}
+        userProfile={userProfile}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onSuccessRedeem={() => {
+          if (currentUser) loadUserProfile(currentUser.id);
+        }}
+      />
+
+      <AdminDashboardModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        user={currentUser}
       />
 
       <ExportCommandsModal
@@ -967,7 +1068,7 @@ export default function Home() {
         user={currentUser}
       />
 
-      {/* Simuladores de la Suite */}
+      {/* Herramientas Principales */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
       <DamageCalculatorModal isOpen={activeModal === "damage-calc"} onClose={() => setActiveModal(null)} />
       <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />
