@@ -11,7 +11,6 @@ import {
   Info,
   Grid3X3,
   ArrowRight,
-  ShieldAlert,
 } from "lucide-react";
 
 interface ApricornGuideModalProps {
@@ -23,8 +22,9 @@ interface BallRecipe {
   id: string;
   name: string;
   englishName: string;
+  spriteUrl: string;
   baseMaterial: "Cobre" | "Hierro" | "Oro";
-  apricornTop: [string, string, string]; // Las 3 apricorns de la fila superior
+  apricornTop: [string, string, string];
   catchRate: string;
   description: string;
   accentColor: string;
@@ -43,90 +43,99 @@ const BALL_RECIPES: BallRecipe[] = [
     id: "poke-ball",
     name: "Poké Ball",
     englishName: "Poke Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png",
     baseMaterial: "Cobre",
     apricornTop: ["Roja", "Roja", "Roja"],
-    catchRate: "1.0x (Estándar)",
-    description: "Tapa roja sobre base de cobre y botón de piedra o madera.",
+    catchRate: "1.0x",
+    description: "Tapa roja sobre base de lingote de cobre y botón.",
     accentColor: "border-red-500/40 text-red-400 bg-red-500/10",
   },
   {
     id: "great-ball",
     name: "Súper Ball",
     englishName: "Great Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png",
     baseMaterial: "Hierro",
     apricornTop: ["Azul", "Roja", "Azul"],
     catchRate: "1.5x",
-    description: "Tapa bicolor sobre base de hierro y botón.",
+    description: "Tapa bicolor azul/roja sobre base de hierro y botón.",
     accentColor: "border-blue-500/40 text-blue-400 bg-blue-500/10",
   },
   {
     id: "ultra-ball",
     name: "Ultra Ball",
     englishName: "Ultra Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png",
     baseMaterial: "Oro",
     apricornTop: ["Negra", "Amarilla", "Negra"],
     catchRate: "2.0x",
-    description: "Tapa negra y amarilla sobre base de oro y botón.",
+    description: "Tapa negra y amarilla sobre base de lingote de oro y botón.",
     accentColor: "border-amber-400/40 text-amber-300 bg-amber-400/10",
   },
   {
     id: "dusk-ball",
     name: "Ocaso Ball",
     englishName: "Dusk Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/dusk-ball.png",
     baseMaterial: "Hierro",
     apricornTop: ["Verde", "Negra", "Verde"],
-    catchRate: "3.0x de noche o cuevas",
-    description: "Especial para oscuridad o bajo Y=60. Base de hierro.",
+    catchRate: "3.0x de noche / cuevas",
+    description: "Eficacia elevada bajo Y=60 o en horario nocturno. Base de hierro.",
     accentColor: "border-emerald-500/40 text-emerald-400 bg-emerald-500/10",
   },
   {
     id: "quick-ball",
     name: "Veloz Ball",
     englishName: "Quick Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/quick-ball.png",
     baseMaterial: "Hierro",
     apricornTop: ["Azul", "Amarilla", "Azul"],
-    catchRate: "5.0x en turno 1",
-    description: "Máxima efectividad al primer contacto en batalla. Base de hierro.",
+    catchRate: "5.0x (Turno 1)",
+    description: "Multiplicador de 5x al usarla de inmediato en el turno 1. Base de hierro.",
     accentColor: "border-cyan-400/40 text-cyan-300 bg-cyan-400/10",
   },
   {
     id: "timer-ball",
     name: "Turno Ball",
     englishName: "Timer Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/timer-ball.png",
     baseMaterial: "Hierro",
     apricornTop: ["Blanca", "Roja", "Blanca"],
-    catchRate: "Hasta 4.0x con el tiempo",
-    description: "Aumenta +0.3x cada turno de batalla. Base de hierro.",
+    catchRate: "Hasta 4.0x",
+    description: "Suma +0.3x de ratio por cada turno transcurrido. Base de hierro.",
     accentColor: "border-zinc-400/40 text-zinc-300 bg-zinc-500/10",
   },
   {
     id: "dive-ball",
     name: "Buceo Ball",
     englishName: "Dive Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/dive-ball.png",
     baseMaterial: "Hierro",
     apricornTop: ["Azul", "Azul", "Azul"],
     catchRate: "3.5x en agua",
-    description: "Bonificación en océanos o al pescar. Base de hierro.",
+    description: "Bonificación en biomas marinos o pescando. Base de hierro.",
     accentColor: "border-sky-500/40 text-sky-400 bg-sky-500/10",
   },
   {
     id: "net-ball",
     name: "Malla Ball",
     englishName: "Net Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/net-ball.png",
     baseMaterial: "Hierro",
     apricornTop: ["Negra", "Azul", "Negra"],
     catchRate: "3.5x Agua / Bicho",
-    description: "Efectividad aumentada en tipos Agua y Bicho. Base de hierro.",
+    description: "Ratio aumentado frente a tipos Agua o Bicho. Base de hierro.",
     accentColor: "border-teal-500/40 text-teal-400 bg-teal-500/10",
   },
   {
     id: "cobble-ball",
     name: "Cobble Ball",
     englishName: "Cobble Ball",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/heavy-ball.png",
     baseMaterial: "Cobre",
     apricornTop: ["Negra", "Negra", "Negra"],
     catchRate: "1.25x en cuevas",
-    description: "Esfera nativa de Cobblemon elaborada con base de cobre.",
+    description: "Esfera temática nativa de Cobblemon fabricada sobre base de cobre.",
     accentColor: "border-orange-500/40 text-orange-400 bg-orange-500/10",
   },
 ];
@@ -140,7 +149,7 @@ const BERRIES_DATA: BerryEntry[] = [
   { name: "Baya Tamate (Tamato)", effect: "Aumenta felicidad y reduce 10 EVs en Velocidad.", evReduced: "Velocidad (-10)", flavor: "Picante / Seca", category: "ev_reduction" },
   { name: "Baya Zidra (Sitrus)", effect: "Restaura el 25% de los PS cuando caen bajo el 50%.", flavor: "Equilibrada", category: "combat" },
   { name: "Baya Ziuela (Lum)", effect: "Cura cualquier problema de estado alterado.", flavor: "Equilibrada", category: "combat" },
-  { name: "Hierba Copia (Mirror Herb)", effect: "Permite transferir movimientos huevo entre Pokémon en el Pasture.", flavor: "Especial", category: "breeding" },
+  { name: "Hierba Copia (Mirror Herb)", effect: "Permite transferir movimientos huevo entre Pokémon en el Pasture Block.", flavor: "Especial", category: "breeding" },
 ];
 
 export function ApricornGuideModal({ isOpen, onClose }: ApricornGuideModalProps) {
@@ -252,15 +261,14 @@ export function ApricornGuideModal({ isOpen, onClose }: ApricornGuideModalProps)
             </div>
           </div>
 
-          {/* ESQUEMA EXPLICATIVO DE LA MESA 3X3 DE COBBLEMON */}
+          {/* Resumen explicativo del procedimiento */}
           <div className="p-4 rounded-2xl bg-zinc-900/70 border border-purple-500/20 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-white">
               <Info className="w-4 h-4 text-purple-400" />
-              <span>Proceso Oficial en Cobblemon (Mesa de Trabajo Estándar):</span>
+              <span>Fabricación oficial de Cobblemon (Mesa de Trabajo Estándar):</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              {/* Paso 1: Tapa */}
               <div className="p-3 rounded-xl bg-zinc-950/80 border border-white/5 flex items-center gap-3">
                 <div className="grid grid-cols-3 gap-1 bg-zinc-900 p-1.5 rounded-lg border border-white/10 shrink-0">
                   <div className="w-5 h-5 rounded bg-purple-500/30 border border-purple-400/40 flex items-center justify-center text-[8px] font-bold text-purple-200">A</div>
@@ -274,14 +282,13 @@ export function ApricornGuideModal({ isOpen, onClose }: ApricornGuideModalProps)
                   <div className="w-5 h-5 rounded bg-zinc-800/40 border border-white/5" />
                 </div>
                 <div>
-                  <span className="font-bold text-purple-300 block">Paso 1: Tapa de Ball</span>
+                  <span className="font-bold text-purple-300 block">Paso 1: Tapa</span>
                   <span className="text-[11px] text-zinc-400">
-                    3 Apricorns crudas en la fila superior de la mesa generan la Tapa correspondiente.
+                    3 Apricorns crudos en la fila superior para crear la Tapa.
                   </span>
                 </div>
               </div>
 
-              {/* Paso 2: Ensamblaje */}
               <div className="p-3 rounded-xl bg-zinc-950/80 border border-white/5 flex items-center gap-3">
                 <div className="grid grid-cols-3 gap-1 bg-zinc-900 p-1.5 rounded-lg border border-white/10 shrink-0">
                   <div className="w-5 h-5 rounded bg-zinc-800/40 border border-white/5" />
@@ -297,14 +304,14 @@ export function ApricornGuideModal({ isOpen, onClose }: ApricornGuideModalProps)
                 <div>
                   <span className="font-bold text-emerald-300 block">Paso 2: Ensamblaje</span>
                   <span className="text-[11px] text-zinc-400">
-                    Coloca en la columna central: <strong>Tapa</strong> (arriba), <strong>Base metálica</strong> (centro) y <strong>Botón</strong> (abajo).
+                    Columna central: <strong>Tapa</strong> (arriba), <strong>Base metálica</strong> (centro) y <strong>Botón</strong> (abajo).
                   </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* PESTAÑA: CRAFTEOS VISUALES */}
+          {/* PESTAÑA: CRAFTEOS VISUALES CON IMAGEN DE LA POKÉ BALL */}
           {activeTab === "crafting" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredBalls.map((ball) => (
@@ -314,8 +321,23 @@ export function ApricornGuideModal({ isOpen, onClose }: ApricornGuideModalProps)
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-white">{ball.name}</h4>
-                      <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border ${ball.accentColor}`}>
+                      <div className="flex items-center gap-2.5">
+                        {/* Sprite de la Poké Ball de referencia */}
+                        <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-white/10 flex items-center justify-center p-1 shrink-0">
+                          <img
+                            src={ball.spriteUrl}
+                            alt={ball.name}
+                            className="w-8 h-8 object-contain pixelated drop-shadow"
+                            style={{ imageRendering: "pixelated" }}
+                          />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white">{ball.name}</h4>
+                          <span className="text-[10px] text-zinc-400 block font-mono">{ball.englishName}</span>
+                        </div>
+                      </div>
+
+                      <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border shrink-0 ${ball.accentColor}`}>
                         {ball.catchRate}
                       </span>
                     </div>
@@ -323,7 +345,7 @@ export function ApricornGuideModal({ isOpen, onClose }: ApricornGuideModalProps)
                     {/* Mesa de crafteo visual para esta Ball */}
                     <div className="bg-zinc-950 p-2.5 rounded-xl border border-white/5 space-y-2">
                       <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block">
-                        Crafteo de Tapa (Mesa 3x3):
+                        Fila superior (Tapa):
                       </span>
                       <div className="grid grid-cols-3 gap-1.5 w-fit">
                         {ball.apricornTop.map((color, idx) => (
@@ -336,15 +358,16 @@ export function ApricornGuideModal({ isOpen, onClose }: ApricornGuideModalProps)
                             </span>
                           </div>
                         ))}
-                        {/* 6 Casillas vacías inferiores */}
                         {Array.from({ length: 6 }).map((_, i) => (
                           <div key={i} className="w-8 h-8 rounded-lg bg-zinc-900/30 border border-white/[0.03]" />
                         ))}
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 pt-1 border-t border-white/5 font-mono">
-                        <span>Base requerida:</span>
-                        <span className="text-white font-bold">{ball.baseMaterial}</span>
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1.5 border-t border-white/5 font-mono">
+                        <span>Base metálica:</span>
+                        <span className="text-white font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+                          {ball.baseMaterial}
+                        </span>
                       </div>
                     </div>
 
