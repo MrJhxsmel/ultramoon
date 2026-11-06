@@ -52,6 +52,7 @@ import { ExpCalculatorModal } from "@/components/mechanics/exp-calculator-modal"
 import { MountsFieldGuideModal } from "@/components/mechanics/mounts-field-guide-modal";
 import { WeatherTerrainsModal } from "@/components/mechanics/weather-terrains-modal";
 import { AuthModal } from "@/components/auth/auth-modal";
+import { ProfileModal } from "@/components/profile/profile-modal";
 import { supabase } from "@/lib/supabase";
 
 import type { PokemonData } from "@/types/pokemon";
@@ -140,7 +141,7 @@ const MODULES: ToolModule[] = [
     id: "team-builder",
     title: "Team Builder & Matchups",
     category: "competitive",
-    badge: "6V6 + DISCORD",
+    badge: "6V6 + EXPORT",
     description: "Tablero interactivo, descarga de tarjeta en PNG, cores FWG/DSF y planes contra arquetipos meta.",
     icon: Users,
     gradient: "from-indigo-500/20 via-blue-500/10 to-transparent",
@@ -272,8 +273,12 @@ export default function Home() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
+
+  // Sesión y Perfil en Supabase
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   // Estados de Personalización Visual (Temas)
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
@@ -300,6 +305,28 @@ export default function Home() {
     id: 445,
   };
 
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (data && !error) {
+        setUserProfile(data);
+        if (data.preferred_theme && THEMES[data.preferred_theme as ThemeMode]) {
+          setCurrentTheme(data.preferred_theme as ThemeMode);
+        }
+        if (data.sound_volume !== undefined && data.sound_volume !== null) {
+          setVolume(data.sound_volume);
+        }
+      }
+    } catch (e) {
+      // Ignorar si no existe el registro aún
+    }
+  };
+
   useEffect(() => {
     const savedTheme = localStorage.getItem("ultramoon_theme") as ThemeMode | null;
     if (savedTheme && THEMES[savedTheme]) setCurrentTheme(savedTheme);
@@ -307,13 +334,22 @@ export default function Home() {
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
     if (savedVol !== null) setVolume(Number(savedVol));
 
-    // Revisar usuario activo en Supabase
+    // Revisar usuario activo en Supabase y cargar su perfil
     supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) setCurrentUser(data.user);
+      if (data?.user) {
+        setCurrentUser(data.user);
+        loadUserProfile(data.user.id);
+      }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user ?? null);
+      const user = session?.user ?? null;
+      setCurrentUser(user);
+      if (user) {
+        loadUserProfile(user.id);
+      } else {
+        setUserProfile(null);
+      }
     });
 
     // Cerrar popovers al hacer click fuera
@@ -350,15 +386,38 @@ export default function Home() {
     };
   }, []);
 
-  const handleSelectTheme = (theme: ThemeMode) => {
+  const handleSelectTheme = async (theme: ThemeMode) => {
     setCurrentTheme(theme);
     localStorage.setItem("ultramoon_theme", theme);
     setIsThemeMenuOpen(false);
+
+    // Si el usuario está autenticado, sincronizar tema en su perfil de Supabase
+    if (currentUser) {
+      await supabase.from("user_profiles").upsert(
+        {
+          id: currentUser.id,
+          preferred_theme: theme,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+    }
   };
 
-  const handleVolumeChange = (newVal: number) => {
+  const handleVolumeChange = async (newVal: number) => {
     setVolume(newVal);
     localStorage.setItem("ultramoon_sound_volume", String(newVal));
+
+    if (currentUser) {
+      await supabase.from("user_profiles").upsert(
+        {
+          id: currentUser.id,
+          sound_volume: newVal,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+    }
   };
 
   const playPokemonCry = (pokemonId: number) => {
@@ -375,6 +434,7 @@ export default function Home() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
+    setUserProfile(null);
   };
 
   const filteredModules = useMemo(() => {
@@ -384,6 +444,17 @@ export default function Home() {
 
   const currentThemeConfig = THEMES[currentTheme];
   const isLight = currentTheme === "quartz";
+
+  // Identificador visual para el avatar
+  const displayName =
+    userProfile?.trainer_name ||
+    userProfile?.minecraft_username ||
+    currentUser?.email?.split("@")[0] ||
+    "Entrenador";
+
+  const mcSkinAvatar = userProfile?.minecraft_username
+    ? `https://minotar.net/helm/${encodeURIComponent(userProfile.minecraft_username)}/24.png`
+    : null;
 
   return (
     <div className={`relative min-h-screen ${currentThemeConfig.bg} ${currentThemeConfig.text} font-sans transition-colors duration-500 overflow-x-hidden selection:bg-purple-500/30 selection:text-white`}>
@@ -419,7 +490,7 @@ export default function Home() {
                 <span className="text-[10px] font-mono opacity-60 hidden sm:inline">{CURRENT_VERSION}</span>
               </div>
               <p className="text-xs opacity-60 hidden sm:block">
-                Suite analítica competitiva, monturas y climas para Minecraft
+                Suite analítica competitiva, monturas y climas para Cobblemon
               </p>
             </div>
           </div>
@@ -440,15 +511,30 @@ export default function Home() {
               <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 font-mono">⌘K</kbd>
             </button>
 
-            {/* Botón de Autenticación / Cuenta */}
+            {/* Botón de Autenticación / Perfil */}
             {currentUser ? (
               <div className="flex items-center gap-2">
-                <div className={`px-3 py-1.5 rounded-2xl border flex items-center gap-1.5 text-xs font-semibold ${
-                  isLight ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-purple-500/10 border-purple-500/30 text-purple-300"
-                }`}>
-                  <User className="w-3.5 h-3.5" />
-                  <span className="max-w-[100px] truncate hidden sm:inline">{currentUser.email?.split("@")[0]}</span>
-                </div>
+                <button
+                  onClick={() => setIsProfileOpen(true)}
+                  className={`px-3 py-1.5 rounded-2xl border flex items-center gap-2 text-xs font-semibold transition hover:scale-[1.02] ${
+                    isLight ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-purple-500/10 border-purple-500/30 text-purple-300"
+                  }`}
+                  title="Configuración de Perfil"
+                >
+                  {mcSkinAvatar ? (
+                    <img
+                      src={mcSkinAvatar}
+                      alt="Skin avatar"
+                      className="w-4 h-4 rounded-md object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <User className="w-3.5 h-3.5" />
+                  )}
+                  <span className="max-w-[110px] truncate hidden sm:inline">{displayName}</span>
+                </button>
                 <button
                   onClick={handleLogout}
                   className={`p-2 rounded-2xl border transition ${
@@ -480,7 +566,7 @@ export default function Home() {
                 className={`p-2 rounded-2xl border transition ${
                   isLight ? "bg-slate-100 hover:bg-slate-200 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300"
                 }`}
-                title="Cambiar apariencia de la página"
+                title="Cambiar apariencia"
               >
                 <Palette className="w-4 h-4" />
               </button>
@@ -779,6 +865,22 @@ export default function Home() {
 
       {/* Modal de Autenticación */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+
+      {/* Modal de Ajustes de Perfil */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        user={currentUser}
+        onProfileUpdated={(updated) => {
+          setUserProfile(updated);
+          if (updated.preferred_theme && THEMES[updated.preferred_theme as ThemeMode]) {
+            setCurrentTheme(updated.preferred_theme as ThemeMode);
+          }
+          if (updated.sound_volume !== undefined) {
+            setVolume(updated.sound_volume);
+          }
+        }}
+      />
 
       {/* Modales Interactivos del Ecosistema */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
