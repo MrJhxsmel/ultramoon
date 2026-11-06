@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -598,7 +598,7 @@ export default function Home() {
 
         {/* Cuadrícula Interactiva de Módulos */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {filteredModules.map((module) => {
+          {filteredModules.map((module: ToolModule) => {
             const Icon = module.icon;
             return (
               <motion.div
