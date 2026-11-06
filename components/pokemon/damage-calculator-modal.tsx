@@ -1,18 +1,14 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
   Swords,
   Shield,
-  Sun,
-  CloudRain,
-  Snowflake,
-  Wind,
-  Zap,
-  Sparkles,
   Search,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
 import { PokemonData } from "@/types/pokemon";
@@ -47,10 +43,19 @@ export function DamageCalculatorModal({
   const [attacker, setAttacker] = useState<PokemonData>(DEFAULT_ATTACKER);
   const [defender, setDefender] = useState<PokemonData>(DEFAULT_DEFENDER);
 
+  // Estados de los buscadores
+  const [isAttackerPickerOpen, setIsAttackerPickerOpen] = useState(false);
+  const [attackerQuery, setAttackerQuery] = useState("");
+  const attackerRef = useRef<HTMLDivElement>(null);
+
+  const [isDefenderPickerOpen, setIsDefenderPickerOpen] = useState(false);
+  const [defenderQuery, setDefenderQuery] = useState("");
+  const defenderRef = useRef<HTMLDivElement>(null);
+
   const [atkBoost, setAtkBoost] = useState<number>(0);
   const [defBoost, setDefBoost] = useState<number>(0);
 
-  // Climas y Terrenos completos
+  // Climas y Terrenos
   const [weather, setWeather] = useState<"clear" | "sun" | "rain" | "snow" | "sand">("clear");
   const [terrain, setTerrain] = useState<"none" | "electric" | "grassy" | "psychic" | "misty">("none");
 
@@ -61,12 +66,47 @@ export function DamageCalculatorModal({
     auroraVeil: false,
   });
 
-  // Movimiento actual o personalizado
   const [selectedMove, setSelectedMove] = useState(PRESET_MOVES[0]);
-  const [customMoveName, setCustomMoveName] = useState("");
   const [customPower, setCustomPower] = useState<number>(90);
 
-  // Cálculos de daño competitivos
+  // Cerrar menús de búsqueda al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (attackerRef.current && !attackerRef.current.contains(e.target as Node)) {
+        setIsAttackerPickerOpen(false);
+      }
+      if (defenderRef.current && !defenderRef.current.contains(e.target as Node)) {
+        setIsDefenderPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Filtros de búsqueda en tiempo real
+  const filteredAttackers = useMemo(() => {
+    if (!attackerQuery.trim()) return ALL_POKEMON.slice(0, 20);
+    const q = attackerQuery.toLowerCase();
+    return ALL_POKEMON.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.id.toString().includes(q) ||
+        p.types.some((t) => t.toLowerCase().includes(q))
+    ).slice(0, 25);
+  }, [attackerQuery]);
+
+  const filteredDefenders = useMemo(() => {
+    if (!defenderQuery.trim()) return ALL_POKEMON.slice(0, 20);
+    const q = defenderQuery.toLowerCase();
+    return ALL_POKEMON.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.id.toString().includes(q) ||
+        p.types.some((t) => t.toLowerCase().includes(q))
+    ).slice(0, 25);
+  }, [defenderQuery]);
+
+  // Motor de cálculo de daño
   const calculationResult = useMemo(() => {
     const power = customPower || selectedMove.power;
     const isPhysical = selectedMove.category === "Physical";
@@ -74,15 +114,12 @@ export function DamageCalculatorModal({
     const atkStat = isPhysical ? attacker.stats.attack : attacker.stats.specialAttack;
     const defStat = isPhysical ? defender.stats.defense : defender.stats.specialDefense;
 
-    // Modificadores de boost (-6 a +6)
     const getBoostMult = (stage: number) => (stage >= 0 ? (2 + stage) / 2 : 2 / (2 - stage));
     const finalAtk = atkStat * getBoostMult(atkBoost);
     const finalDef = defStat * getBoostMult(defBoost);
 
-    // Nivel 50 VGC base
     let baseDmg = Math.floor((((2 * 50) / 5 + 2) * power * (finalAtk / Math.max(1, finalDef))) / 50) + 2;
 
-    // Clima
     if (weather === "sun") {
       if (selectedMove.type === "Fire") baseDmg = Math.floor(baseDmg * 1.5);
       if (selectedMove.type === "Water") baseDmg = Math.floor(baseDmg * 0.5);
@@ -91,13 +128,11 @@ export function DamageCalculatorModal({
       if (selectedMove.type === "Fire") baseDmg = Math.floor(baseDmg * 0.5);
     }
 
-    // Terrenos
     if (terrain === "electric" && selectedMove.type === "Electric") baseDmg = Math.floor(baseDmg * 1.3);
     if (terrain === "grassy" && selectedMove.type === "Grass") baseDmg = Math.floor(baseDmg * 1.3);
     if (terrain === "psychic" && selectedMove.type === "Psychic") baseDmg = Math.floor(baseDmg * 1.3);
     if (terrain === "misty" && selectedMove.type === "Dragon") baseDmg = Math.floor(baseDmg * 0.5);
 
-    // Pantallas
     if (isPhysical && (screens.reflect || screens.auroraVeil)) {
       baseDmg = Math.floor(baseDmg * 0.5);
     }
@@ -105,17 +140,14 @@ export function DamageCalculatorModal({
       baseDmg = Math.floor(baseDmg * 0.5);
     }
 
-    // STAB
     const hasStab = attacker.types.map((t) => t.toLowerCase()).includes(selectedMove.type.toLowerCase());
     if (hasStab) {
       baseDmg = Math.floor(baseDmg * 1.5);
     }
 
-    // Rolls (0.85 a 1.0)
     const minRoll = Math.floor(baseDmg * 0.85);
     const maxRoll = baseDmg;
 
-    // HP Máximo defensivo Nv.50
     const defenderHp = Math.floor(((2 * defender.stats.hp + 31 + 252 / 4) * 50) / 100) + 50 + 10;
     const minPercent = ((minRoll / defenderHp) * 100).toFixed(1);
     const maxPercent = ((maxRoll / defenderHp) * 100).toFixed(1);
@@ -126,7 +158,12 @@ export function DamageCalculatorModal({
       defenderHp,
       minPercent,
       maxPercent,
-      ohkoChance: Number(minPercent) >= 100 ? "Garantizado OHKO (1 Golpe)" : Number(maxPercent) >= 100 ? "Probable OHKO" : "Garantizado 2HKO (derrota en 2 turnos)",
+      ohkoChance:
+        Number(minPercent) >= 100
+          ? "Garantizado OHKO (1 Golpe)"
+          : Number(maxPercent) >= 100
+          ? "Probable OHKO"
+          : "Garantizado 2HKO (derrota en 2 turnos)",
     };
   }, [attacker, defender, atkBoost, defBoost, weather, terrain, screens, selectedMove, customPower]);
 
@@ -147,7 +184,7 @@ export function DamageCalculatorModal({
           initial={{ opacity: 0, scale: 0.96, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 10 }}
-          className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-zinc-950 border border-white/10 rounded-3xl shadow-2xl z-50 p-6 sm:p-8 space-y-6"
+          className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-zinc-950 border border-white/10 rounded-3xl shadow-2xl z-50 p-6 sm:p-8 space-y-6 custom-scrollbar"
         >
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -158,7 +195,7 @@ export function DamageCalculatorModal({
               <div>
                 <h2 className="text-xl font-bold text-white">Calculadora de Daño Gen 9</h2>
                 <p className="text-xs text-zinc-400">
-                  Pantallas, climas de Minecraft, terrenos y selector libre de movimientos
+                  Buscador directo de especies, pantallas, climas de Minecraft y terrenos
                 </p>
               </div>
             </div>
@@ -170,26 +207,68 @@ export function DamageCalculatorModal({
             </button>
           </div>
 
-          {/* Duelo Atacante vs Defensor */}
+          {/* Duelo Atacante vs Defensor con Buscadores Dinámicos */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* ATACANTE */}
-            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3 relative">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] uppercase font-bold text-rose-400">Atacante (Nv. 50)</span>
-                <select
-                  value={attacker.name}
-                  onChange={(e) => {
-                    const found = ALL_POKEMON.find((p) => p.name === e.target.value);
-                    if (found) setAttacker(found);
-                  }}
-                  className="bg-zinc-950 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none"
-                >
-                  {ALL_POKEMON.slice(0, 80).map((p) => (
-                    <option key={p.id + p.name} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+
+                {/* Buscador de Atacante */}
+                <div className="relative" ref={attackerRef}>
+                  <button
+                    onClick={() => {
+                      setIsAttackerPickerOpen(!isAttackerPickerOpen);
+                      setAttackerQuery("");
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-white/10 text-xs text-white transition"
+                  >
+                    <Search className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Cambiar Pokémon</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+                  </button>
+
+                  <AnimatePresence>
+                    {isAttackerPickerOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        className="absolute right-0 top-full mt-2 w-72 bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl z-50 p-2 overflow-hidden"
+                      >
+                        <div className="relative mb-2">
+                          <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={attackerQuery}
+                            onChange={(e) => setAttackerQuery(e.target.value)}
+                            placeholder="Buscar atacante..."
+                            autoFocus
+                            className="w-full bg-zinc-950 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-400"
+                          />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                          {filteredAttackers.map((p) => (
+                            <button
+                              key={p.id + "-" + p.name}
+                              onClick={() => {
+                                setAttacker(p);
+                                setIsAttackerPickerOpen(false);
+                              }}
+                              className="w-full p-2 rounded-xl flex items-center justify-between text-left hover:bg-white/[0.06] text-zinc-300 transition"
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <img src={p.sprite} alt={p.name} className="w-7 h-7 object-contain" />
+                                <span className="text-xs font-bold text-white truncate">{p.name}</span>
+                              </div>
+                              <span className="text-[10px] text-zinc-500 font-mono">#{p.id}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -227,23 +306,65 @@ export function DamageCalculatorModal({
             </div>
 
             {/* DEFENSOR */}
-            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3">
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 space-y-3 relative">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] uppercase font-bold text-cyan-400">Defensor (Nv. 50)</span>
-                <select
-                  value={defender.name}
-                  onChange={(e) => {
-                    const found = ALL_POKEMON.find((p) => p.name === e.target.value);
-                    if (found) setDefender(found);
-                  }}
-                  className="bg-zinc-950 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none"
-                >
-                  {ALL_POKEMON.slice(0, 80).map((p) => (
-                    <option key={p.id + p.name} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+
+                {/* Buscador de Defensor */}
+                <div className="relative" ref={defenderRef}>
+                  <button
+                    onClick={() => {
+                      setIsDefenderPickerOpen(!isDefenderPickerOpen);
+                      setDefenderQuery("");
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-white/10 text-xs text-white transition"
+                  >
+                    <Search className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Cambiar Pokémon</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+                  </button>
+
+                  <AnimatePresence>
+                    {isDefenderPickerOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        className="absolute right-0 top-full mt-2 w-72 bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl z-50 p-2 overflow-hidden"
+                      >
+                        <div className="relative mb-2">
+                          <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={defenderQuery}
+                            onChange={(e) => setDefenderQuery(e.target.value)}
+                            placeholder="Buscar defensor..."
+                            autoFocus
+                            className="w-full bg-zinc-950 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                          {filteredDefenders.map((p) => (
+                            <button
+                              key={p.id + "-" + p.name}
+                              onClick={() => {
+                                setDefender(p);
+                                setIsDefenderPickerOpen(false);
+                              }}
+                              className="w-full p-2 rounded-xl flex items-center justify-between text-left hover:bg-white/[0.06] text-zinc-300 transition"
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <img src={p.sprite} alt={p.name} className="w-7 h-7 object-contain" />
+                                <span className="text-xs font-bold text-white truncate">{p.name}</span>
+                              </div>
+                              <span className="text-[10px] text-zinc-500 font-mono">#{p.id}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -281,9 +402,8 @@ export function DamageCalculatorModal({
             </div>
           </div>
 
-          {/* Selector de Pantallas y Condiciones de Campo */}
+          {/* Opciones de Pantallas, Climas y Terrenos */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-xs">
-            {/* Pantallas */}
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold text-zinc-400 block">
                 Pantallas del Defensor:
@@ -322,7 +442,6 @@ export function DamageCalculatorModal({
               </div>
             </div>
 
-            {/* Climas */}
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold text-zinc-400 block">
                 Clima de Minecraft:
@@ -342,7 +461,6 @@ export function DamageCalculatorModal({
               </div>
             </div>
 
-            {/* Terrenos */}
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold text-zinc-400 block">
                 Terrenos:
@@ -363,7 +481,7 @@ export function DamageCalculatorModal({
             </div>
           </div>
 
-          {/* Selector de Movimientos & Personalización */}
+          {/* Ataques y Potencia */}
           <div className="space-y-2">
             <span className="text-[11px] uppercase font-bold text-zinc-400 block">
               Seleccionar o Personalizar Ataque:
@@ -390,7 +508,6 @@ export function DamageCalculatorModal({
               ))}
             </div>
 
-            {/* Potencia personalizada */}
             <div className="flex items-center gap-3 pt-2">
               <span className="text-xs text-zinc-400">Potencia de ataque personalizada:</span>
               <input
@@ -402,7 +519,7 @@ export function DamageCalculatorModal({
             </div>
           </div>
 
-          {/* Resultado del Cálculo */}
+          {/* Resultado */}
           <div className="p-5 rounded-2xl bg-gradient-to-r from-zinc-900 via-purple-950/20 to-zinc-900 border border-purple-500/20 space-y-3">
             <div className="flex items-center justify-between">
               <div>
@@ -423,7 +540,6 @@ export function DamageCalculatorModal({
               </div>
             </div>
 
-            {/* Barra de Vida */}
             <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 transition-all duration-300"
