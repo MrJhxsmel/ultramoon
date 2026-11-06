@@ -32,6 +32,8 @@ import {
   Flame,
   ArrowUpRight,
   SlidersHorizontal,
+  User,
+  LogOut,
 } from "lucide-react";
 
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
@@ -49,12 +51,13 @@ import { ServerCommandsModal } from "@/components/mechanics/server-commands-moda
 import { ExpCalculatorModal } from "@/components/mechanics/exp-calculator-modal";
 import { MountsFieldGuideModal } from "@/components/mechanics/mounts-field-guide-modal";
 import { WeatherTerrainsModal } from "@/components/mechanics/weather-terrains-modal";
+import { AuthModal } from "@/components/auth/auth-modal";
+import { supabase } from "@/lib/supabase";
 
 import type { PokemonData } from "@/types/pokemon";
 
 const CURRENT_VERSION = "v2.2.0";
 
-// Paletas de Temas de Interfaz
 type ThemeMode = "midnight" | "slate" | "quartz" | "emerald";
 
 interface ThemeConfig {
@@ -268,7 +271,9 @@ const MODULES: ToolModule[] = [
 export default function Home() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Estados de Personalización Visual (Temas)
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
@@ -284,7 +289,7 @@ export default function Home() {
   // Estado Shiny para la especie destacada
   const [isFeaturedShiny, setIsFeaturedShiny] = useState(false);
 
-  // Especie destacada dinámica con URLs estables y seguras
+  // Especie destacada dinámica
   const featuredPokemon = {
     name: "Garchomp",
     types: ["Dragon", "Ground"],
@@ -301,6 +306,15 @@ export default function Home() {
 
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
     if (savedVol !== null) setVolume(Number(savedVol));
+
+    // Revisar usuario activo en Supabase
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setCurrentUser(data.user);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
 
     // Cerrar popovers al hacer click fuera
     const handleClickOutside = (e: MouseEvent) => {
@@ -332,6 +346,7 @@ export default function Home() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
+      authListener?.subscription.unsubscribe();
     };
   }, []);
 
@@ -355,6 +370,11 @@ export default function Home() {
       audio.volume = Math.max(0, Math.min(1, volume / 100));
       audio.play().catch(() => {});
     } catch (e) {}
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
   };
 
   const filteredModules = useMemo(() => {
@@ -420,6 +440,39 @@ export default function Home() {
               <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 font-mono">⌘K</kbd>
             </button>
 
+            {/* Botón de Autenticación / Cuenta */}
+            {currentUser ? (
+              <div className="flex items-center gap-2">
+                <div className={`px-3 py-1.5 rounded-2xl border flex items-center gap-1.5 text-xs font-semibold ${
+                  isLight ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-purple-500/10 border-purple-500/30 text-purple-300"
+                }`}>
+                  <User className="w-3.5 h-3.5" />
+                  <span className="max-w-[100px] truncate hidden sm:inline">{currentUser.email?.split("@")[0]}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className={`p-2 rounded-2xl border transition ${
+                    isLight ? "bg-slate-100 hover:bg-rose-50 border-slate-200 text-slate-600 hover:text-rose-600" : "bg-white/5 hover:bg-rose-500/20 border-white/10 text-zinc-400 hover:text-rose-400"
+                  }`}
+                  title="Cerrar Sesión"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className={`px-3.5 py-1.5 rounded-2xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                  isLight
+                    ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
+                    : "bg-purple-600/30 hover:bg-purple-600/50 border-purple-500/40 text-purple-200"
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Entrar</span>
+              </button>
+            )}
+
             {/* Selector de Temas */}
             <div className="relative" ref={themeRef}>
               <button
@@ -464,7 +517,7 @@ export default function Home() {
               </AnimatePresence>
             </div>
 
-            {/* Control Desplegable de Volumen */}
+            {/* Control de Volumen */}
             <div className="relative" ref={volumeRef}>
               <button
                 onClick={() => setIsVolumePopoverOpen(!isVolumePopoverOpen)}
@@ -473,7 +526,7 @@ export default function Home() {
                     ? isLight ? "bg-purple-100 border-purple-300 text-purple-700" : "bg-purple-500/20 border-purple-500/40 text-purple-300"
                     : isLight ? "bg-slate-100 border-slate-200 text-slate-400" : "bg-white/5 border-white/10 text-zinc-500"
                 }`}
-                title="Ajustar volumen de gritos Pokémon"
+                title="Ajustar volumen"
               >
                 {volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                 <span className="text-[10px] font-mono font-bold hidden sm:inline">{volume}%</span>
@@ -508,7 +561,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* HERO BANNER DINÁMICO CON ESPECIE DESTACADA */}
+        {/* HERO BANNER */}
         <section className={`relative overflow-hidden rounded-3xl border p-6 sm:p-10 backdrop-blur-xl transition-all duration-300 ${
           isLight
             ? "bg-gradient-to-br from-white via-purple-50/50 to-indigo-50/40 border-slate-200 shadow-xl"
@@ -550,7 +603,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Tarjeta Interactiva de Especie Destacada (Con Artwork HD y Switch Shiny) */}
+            {/* Tarjeta Interactiva de Especie Destacada */}
             <motion.div
               whileHover={{ y: -4 }}
               className={`p-4 sm:p-5 rounded-3xl border flex items-center gap-4 transition shadow-xl group relative ${
@@ -626,7 +679,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Barra de Filtros de Categorías */}
+        {/* Barra de Filtros */}
         <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 custom-scrollbar">
           <div className="flex items-center gap-1.5">
             {[
@@ -656,7 +709,7 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Cuadrícula Interactiva de Módulos */}
+        {/* Cuadrícula de Módulos */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredModules.map((module: ToolModule) => {
             const Icon = module.icon;
@@ -671,7 +724,6 @@ export default function Home() {
                 }}
                 className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor}`}
               >
-                {/* Degradado Ambiental Interno */}
                 <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${module.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
 
                 <div className="relative z-10 space-y-4">
@@ -724,6 +776,9 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      {/* Modal de Autenticación */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       {/* Modales Interactivos del Ecosistema */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
