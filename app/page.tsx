@@ -17,7 +17,6 @@ import {
   Volume2,
   VolumeX,
   RefreshCw,
-  X,
   Terminal,
   TrendingUp,
   Wind,
@@ -26,6 +25,8 @@ import {
   ArrowUpRight,
   User,
   LogOut,
+  Lock,
+  Cloud,
 } from "lucide-react";
 
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
@@ -118,6 +119,8 @@ interface ToolModule {
   icon: React.ElementType;
   gradient: string;
   shadowColor: string;
+  isNew?: boolean;
+  requiresAuth?: boolean;
 }
 
 const MODULES: ToolModule[] = [
@@ -135,8 +138,8 @@ const MODULES: ToolModule[] = [
     id: "team-builder",
     title: "Team Builder & Matchups",
     category: "competitive",
-    badge: "6V6 + CLOUD",
-    description: "Tablero interactivo, descarga de tarjeta en PNG, cores FWG/DSF y planes contra arquetipos meta.",
+    badge: "6V6 + EXPORT",
+    description: "Tablero interactivo, descarga de tarjeta en PNG, cores FWG/DSF y generador /pokegive.",
     icon: Users,
     gradient: "from-indigo-500/20 via-blue-500/10 to-transparent",
     shadowColor: "group-hover:shadow-indigo-500/20",
@@ -160,6 +163,30 @@ const MODULES: ToolModule[] = [
     icon: Gauge,
     gradient: "from-cyan-500/20 via-sky-500/10 to-transparent",
     shadowColor: "group-hover:shadow-cyan-500/20",
+  },
+  {
+    id: "ev-hunting",
+    title: "Caza de EVs en la Nube",
+    category: "breeding",
+    badge: "CLOUD SYNC",
+    description: "Rutas óptimas en Minecraft y rastreador de EVs persistente guardado en Supabase.",
+    icon: Compass,
+    gradient: "from-yellow-500/20 via-amber-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-yellow-500/20",
+    isNew: true,
+    requiresAuth: true,
+  },
+  {
+    id: "export-commands",
+    title: "Generador de Comandos Cobblemon",
+    category: "minecraft",
+    badge: "/POKEGIVE PRO",
+    description: "Exporta tus alineaciones a comandos oficiales de Minecraft con IVs, EVs, ataques y objetos.",
+    icon: Terminal,
+    gradient: "from-fuchsia-500/20 via-purple-500/10 to-transparent",
+    shadowColor: "group-hover:shadow-fuchsia-500/20",
+    isNew: true,
+    requiresAuth: true,
   },
   {
     id: "weather-terrains",
@@ -222,16 +249,6 @@ const MODULES: ToolModule[] = [
     shadowColor: "group-hover:shadow-lime-500/20",
   },
   {
-    id: "ev-hunting",
-    title: "Guía de Caza de EVs",
-    category: "breeding",
-    badge: "CLOUD SYNC",
-    description: "Rutas óptimas en Minecraft y rastreador de EVs persistente guardado en la nube.",
-    icon: Compass,
-    gradient: "from-yellow-500/20 via-amber-500/10 to-transparent",
-    shadowColor: "group-hover:shadow-yellow-500/20",
-  },
-  {
     id: "habitats",
     title: "Buscador de Hábitats & Drops",
     category: "minecraft",
@@ -272,22 +289,18 @@ export default function Home() {
   const [isEvCloudModalOpen, setIsEvCloudModalOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
-  // Sesión y Perfil en Supabase
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  // Temas
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<"all" | "competitive" | "minecraft" | "breeding">("all");
 
-  // Volumen
   const [volume, setVolume] = useState<number>(35);
   const [isVolumePopoverOpen, setIsVolumePopoverOpen] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
 
-  // Especie destacada
   const [isFeaturedShiny, setIsFeaturedShiny] = useState(false);
   const featuredPokemon = {
     name: "Garchomp",
@@ -498,7 +511,7 @@ export default function Home() {
                   className={`px-3 py-1.5 rounded-2xl border flex items-center gap-2 text-xs font-semibold transition hover:scale-[1.02] ${
                     isLight ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-purple-500/10 border-purple-500/30 text-purple-300"
                   }`}
-                  title="Configuración de Perfil"
+                  title="Ficha y Ajustes de Perfil"
                 >
                   {mcSkinAvatar ? (
                     <img
@@ -513,6 +526,9 @@ export default function Home() {
                     <User className="w-3.5 h-3.5" />
                   )}
                   <span className="max-w-[110px] truncate hidden sm:inline">{displayName}</span>
+                  <span className="px-1.5 py-0.2 text-[9px] bg-purple-500/30 text-purple-200 rounded font-bold">
+                    PASAPORTE
+                  </span>
                 </button>
                 <button
                   onClick={handleLogout}
@@ -529,12 +545,15 @@ export default function Home() {
                 onClick={() => setIsAuthOpen(true)}
                 className={`px-3.5 py-1.5 rounded-2xl border text-xs font-bold transition flex items-center gap-1.5 ${
                   isLight
-                    ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
+                    ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600 shadow-md shadow-purple-200"
                     : "bg-purple-600/30 hover:bg-purple-600/50 border-purple-500/40 text-purple-200"
                 }`}
               >
                 <User className="w-3.5 h-3.5" />
-                <span>Entrar</span>
+                <span>Iniciar Sesión</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                  DESBLOQUEAR
+                </span>
               </button>
             )}
 
@@ -624,7 +643,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* HERO BANNER */}
+        {/* HERO BANNER CON NOVEDADES CLOUD */}
         <section className={`relative overflow-hidden rounded-3xl border p-6 sm:p-10 backdrop-blur-xl transition-all duration-300 ${
           isLight
             ? "bg-gradient-to-br from-white via-purple-50/50 to-indigo-50/40 border-slate-200 shadow-xl"
@@ -634,7 +653,7 @@ export default function Home() {
             <div className="max-w-xl space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/15 border border-purple-500/30 text-purple-300">
                 <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-spin" style={{ animationDuration: "6s" }} />
-                <span>Cobblemon Gen 9 Meta Suite</span>
+                <span>Cobblemon Gen 9 Meta Suite · Sincronización en la Nube</span>
               </div>
 
               <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
@@ -645,27 +664,48 @@ export default function Home() {
               </h2>
 
               <p className="text-sm sm:text-base opacity-80 leading-relaxed">
-                Calcula breakpoints de daño en Minecraft, arma alineaciones 6v6 con sinergias FWG/DSF, analiza terrenos de bloques y sincroniza tus metas de EVs en la nube.
+                Arma alineaciones 6v6, exporta comandos <code className="text-purple-300 font-mono text-xs">/pokegive</code> para Minecraft y guarda tus metas de EVs en tu cuenta de Supabase.
               </p>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-2">
                 <button
                   onClick={() => setActiveModal("team-builder")}
-                  className={`px-5 py-2.5 rounded-2xl font-bold text-xs bg-gradient-to-r ${currentThemeConfig.accent} text-white shadow-lg shadow-purple-600/30 hover:scale-[1.02] active:scale-[0.98] transition`}
+                  className={`px-5 py-2.5 rounded-2xl font-bold text-xs bg-gradient-to-r ${currentThemeConfig.accent} text-white shadow-lg shadow-purple-600/30 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5`}
                 >
-                  Abrir Team Builder & Matchups
+                  <Users className="w-4 h-4" />
+                  <span>Team Builder & Matchups</span>
                 </button>
+
                 <button
                   onClick={() => {
                     if (currentUser) setIsEvCloudModalOpen(true);
                     else setIsAuthOpen(true);
                   }}
-                  className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition flex items-center gap-1.5 ${
+                  className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition flex items-center gap-2 ${
                     isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Caza de EVs Cloud</span>
+                  <Compass className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Rastreador de EVs Cloud</span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    NUEVO
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (currentUser) setIsCommandsModalOpen(true);
+                    else setIsAuthOpen(true);
+                  }}
+                  className={`px-4 py-2.5 rounded-2xl font-semibold text-xs border transition flex items-center gap-2 ${
+                    isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
+                  }`}
+                >
+                  <Terminal className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Exportar Comandos</span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    NUEVO
+                  </span>
                 </button>
               </div>
             </div>
@@ -746,7 +786,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Filtros */}
+        {/* Filtros de Categoría */}
         <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 custom-scrollbar">
           <div className="flex items-center gap-1.5">
             {[
@@ -776,37 +816,89 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Grilla de Módulos */}
+        {/* Cuadrícula de Módulos con Indicadores Visuales Claros */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredModules.map((module: ToolModule) => {
             const Icon = module.icon;
+            const isLocked = module.requiresAuth && !currentUser;
+
             return (
               <motion.div
                 key={module.id}
                 whileHover={{ y: -6, scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={() => {
-                  if (module.id === "pokewiki") setIsSearchOpen(true);
-                  else if (module.id === "ev-hunting" && currentUser) setIsEvCloudModalOpen(true);
-                  else setActiveModal(module.id);
+                  if (module.id === "pokewiki") {
+                    setIsSearchOpen(true);
+                    return;
+                  }
+
+                  // Si requiere login y no hay cuenta activa, abrir modal de autenticación
+                  if (module.requiresAuth && !currentUser) {
+                    setIsAuthOpen(true);
+                    return;
+                  }
+
+                  // Mapeo directo a modales cloud
+                  if (module.id === "ev-hunting") {
+                    setIsEvCloudModalOpen(true);
+                    return;
+                  }
+                  if (module.id === "export-commands") {
+                    setIsCommandsModalOpen(true);
+                    return;
+                  }
+
+                  setActiveModal(module.id);
                 }}
-                className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor}`}
+                className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor} ${
+                  isLocked ? "ring-1 ring-amber-500/20" : ""
+                }`}
               >
                 <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${module.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
 
                 <div className="relative z-10 space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 relative">
                       <Icon className="w-6 h-6 text-purple-400 group-hover:text-white transition" />
+                      {isLocked && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-md">
+                          <Lock className="w-3 h-3" />
+                        </div>
+                      )}
                     </div>
-                    <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-white/5 border border-white/10 opacity-80">
-                      {module.badge}
-                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      {/* Badge NUEVO destacado */}
+                      {module.isNew && (
+                        <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 shadow-sm animate-pulse">
+                          ✦ NUEVO
+                        </span>
+                      )}
+
+                      {/* Badge REQUIERE LOGIN si el usuario es invitado */}
+                      {isLocked ? (
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>Requiere Login</span>
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-white/5 border border-white/10 opacity-80 flex items-center gap-1">
+                          {module.requiresAuth && <Cloud className="w-3 h-3 text-purple-400" />}
+                          <span>{module.badge}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>
-                    <h3 className="text-base font-bold tracking-tight group-hover:text-purple-300 transition-colors">
-                      {module.title}
+                    <h3 className="text-base font-bold tracking-tight group-hover:text-purple-300 transition-colors flex items-center gap-2">
+                      <span>{module.title}</span>
+                      {module.requiresAuth && (
+                        <span className="text-[10px] text-purple-400 font-mono">
+                          [CLOUD]
+                        </span>
+                      )}
                     </h3>
                     <p className="mt-1.5 text-xs opacity-70 leading-relaxed">
                       {module.description}
@@ -815,7 +907,9 @@ export default function Home() {
                 </div>
 
                 <div className="relative z-10 mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs font-semibold opacity-60 group-hover:opacity-100 transition">
-                  <span>Abrir simulador</span>
+                  <span className={isLocked ? "text-amber-300" : ""}>
+                    {isLocked ? "Inicia sesión para desbloquear" : "Abrir simulador"}
+                  </span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
                 </div>
               </motion.div>
