@@ -12,7 +12,6 @@ import {
   Volume2,
   Sparkles,
   Shield,
-  Search,
   Swords,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -114,11 +113,14 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
     }
   };
 
-  const bodySkinUrl = minecraftUsername.trim()
-    ? `https://minotar.net/armor/body/${encodeURIComponent(minecraftUsername.trim())}/120.png`
+  // Render 3D de cuerpo completo de la skin con fallback automático
+  const cleanNick = minecraftUsername.trim();
+  const bodySkinUrl = cleanNick
+    ? `https://crafatar.com/renders/body/${encodeURIComponent(cleanNick)}?overlay=true&scale=4`
     : null;
 
-  const partnerSpriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${partnerId}.png`;
+  // Sprite liviano y directo para carga instantánea
+  const partnerSpriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${partnerId}.png`;
 
   return (
     <AnimatePresence>
@@ -137,7 +139,7 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           className="relative w-full max-w-2xl bg-zinc-950 border border-white/10 rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[90vh]"
         >
-          {/* Header con botón cerrar */}
+          {/* Header */}
           <div className="flex items-center justify-between p-5 pb-3 border-b border-white/10 shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
@@ -157,7 +159,7 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
           </div>
 
           <div className="overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar">
-            {/* TRAINER CARD PREVIEW (Estilo Credencial) */}
+            {/* TRAINER CARD PREVIEW */}
             <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-zinc-900/60 to-indigo-950/40 p-5 shadow-xl">
               <div className="absolute top-2 right-3 text-[10px] font-mono text-purple-400 font-bold uppercase tracking-widest opacity-80">
                 ULTRAMOON TRAINER PASSPORT
@@ -166,15 +168,16 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-2">
                 {/* Personaje y Datos */}
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-28 flex items-center justify-center rounded-xl bg-black/30 border border-white/10 overflow-hidden shrink-0">
+                  <div className="w-20 h-28 flex items-center justify-center rounded-xl bg-black/40 border border-white/10 overflow-hidden shrink-0 relative">
                     {bodySkinUrl ? (
                       <img
+                        key={cleanNick}
                         src={bodySkinUrl}
                         alt="Skin preview"
-                        className="h-24 object-contain drop-shadow-md"
+                        className="h-24 object-contain drop-shadow-md transition-all duration-200"
+                        loading="eager"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            "https://minotar.net/armor/body/MHF_Steve/120.png";
+                          (e.target as HTMLImageElement).src = `https://minotar.net/bust/${encodeURIComponent(cleanNick)}/100.png`;
                         }}
                       />
                     ) : (
@@ -187,10 +190,10 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
                       {defaultFormat === "vgc50" ? "VGC Nivel 50" : "Singles Nivel 100"}
                     </span>
                     <h4 className="text-lg font-black text-white tracking-tight">
-                      {trainerName || minecraftUsername || "Entrenador Anónimo"}
+                      {trainerName || cleanNick || "Entrenador Anónimo"}
                     </h4>
                     <p className="text-xs text-zinc-400 font-mono">
-                      MC: {minecraftUsername || "Sin vincular"}
+                      MC: {cleanNick || "Sin vincular"}
                     </p>
                     <p className="text-[11px] text-zinc-500 italic max-w-xs line-clamp-2">
                       {bio || "«Listo para dominar las arenas de Cobblemon»"}
@@ -198,15 +201,17 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
                   </div>
                 </div>
 
-                {/* Pokémon Partner */}
+                {/* Pokémon Partner Activo (Instantáneo) */}
                 <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/5 border border-white/10 shrink-0 min-w-[130px]">
                   <span className="text-[9px] uppercase font-bold text-zinc-400 tracking-wider">
                     Partner Activo
                   </span>
                   <img
+                    key={partnerId}
                     src={partnerSpriteUrl}
                     alt={partnerName}
                     className="w-16 h-16 object-contain drop-shadow-lg my-1"
+                    loading="eager"
                   />
                   <span className="text-xs font-bold text-purple-300">{partnerName}</span>
                 </div>
@@ -251,13 +256,13 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
                 <div className="space-y-1.5">
                   <label className="text-zinc-400 font-semibold flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Nick de Minecraft (Skin)</span>
+                    <span>Nick de Minecraft Java (Skin)</span>
                   </label>
                   <input
                     type="text"
                     value={minecraftUsername}
                     onChange={(e) => setMinecraftUsername(e.target.value)}
-                    placeholder="Nick de Minecraft Java"
+                    placeholder="Tu nick de Minecraft"
                     className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400 font-mono"
                   />
                 </div>
@@ -268,7 +273,7 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
                 <label className="text-zinc-400 font-semibold flex items-center justify-between">
                   <span>Pokémon Acompañante Favorito</span>
                   <span className="text-[10px] text-zinc-500 font-normal">
-                    Selecciona uno de la lista rápida
+                    Selección rápida
                   </span>
                 </label>
                 <div className="grid grid-cols-5 gap-2">
@@ -282,7 +287,7 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
                       }}
                       className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition ${
                         partnerId === p.id
-                          ? "bg-purple-600/30 border-purple-500 shadow-lg shadow-purple-600/20"
+                          ? "bg-purple-600/30 border-purple-500 shadow-lg shadow-purple-600/20 scale-[1.02]"
                           : "bg-zinc-900/50 border-white/5 hover:border-white/20 hover:bg-zinc-900"
                       }`}
                     >
@@ -290,6 +295,7 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
                         src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`}
                         alt={p.name}
                         className="w-8 h-8 object-contain"
+                        loading="eager"
                       />
                       <span className="text-[10px] font-medium truncate w-full text-center">
                         {p.name}
@@ -299,7 +305,7 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
                 </div>
               </div>
 
-              {/* Lema o Biografía */}
+              {/* Biografía o Lema */}
               <div className="space-y-1.5">
                 <label className="text-zinc-400 font-semibold">Lema o Frase de Combate</label>
                 <input
@@ -312,7 +318,7 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
                 />
               </div>
 
-              {/* Preferencias de Sistema */}
+              {/* Ajustes de Sistema */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                 <div className="space-y-1.5">
                   <label className="text-zinc-400 font-semibold flex items-center gap-1.5">
