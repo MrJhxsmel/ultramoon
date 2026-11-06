@@ -40,26 +40,25 @@ import { PokemonDetailModal } from "@/components/pokemon/pokemon-detail-modal";
 import type { PokemonData } from "@/types/pokemon";
 
 // Versión del sistema
-const CURRENT_VERSION = "v1.6.0";
+const CURRENT_VERSION = "v1.7.0";
 
 const CHANGELOG = [
   {
-    version: "v1.6.0",
+    version: "v1.7.0",
     date: "Última versión",
     highlights: [
-      "Team Builder: Presets competitivos Smogon y VGC con 1 solo clic.",
-      "Crianza / Pasture: Simulador de IVs heredados en vivo y cálculo de probabilidades de 5 y 6 IVs.",
-      "Evoluciones Especiales: Guía adaptada a Cobblemon con bloques de Minecraft (Redstone, Hielo, Musgo) y regla de Amistad (220).",
-      "PokéWiki: Drops oficiales auténticos y movimientos reales por categoría (Nivel, MT, Huevo).",
-      "PWA & Enlaces Compartibles: Compatible con instalación en celular y compartir por URL única.",
+      "Buscador Inverso de Drops: Localiza qué Pokémon de Cobblemon arroja cada material de Minecraft (Ender Pearls, Cobre, etc.).",
+      "Exportador de Ficha PNG: Genera y descarga una tarjeta visual de alta calidad de tu equipo con un clic.",
+      "Team Builder: Presets competitivos Smogon y VGC integrados.",
+      "Crianza / Pasture: Simulador de IVs heredados en vivo y probabilidades Gen 9.",
+      "Evoluciones Especiales: Guía adaptada a bloques de Minecraft y regla de Amistad (220).",
     ],
   },
   {
-    version: "v1.5.0",
+    version: "v1.6.0",
     date: "Versión previa",
     highlights: [
-      "PWA instalable y enlaces compartibles directos.",
-      "Calculadora de captura Cobblemon con condiciones de cueva y turnos.",
+      "Presets Smogon automáticos y simulación de herencia de IVs.",
     ],
   },
 ];

@@ -23,6 +23,7 @@ import {
   Link,
   Sparkles,
   Wand2,
+  Image as ImageIcon,
 } from "lucide-react";
 import POKEDEX_DATA from "@/data/cobblemon-pokedex.json";
 import { PokemonData } from "@/types/pokemon";
@@ -83,7 +84,6 @@ const COMMON_NATURES = [
   "Timid", "Jolly", "Modest", "Adamant", "Bold", "Calm", "Impish", "Careful", "Brave", "Quiet"
 ];
 
-// Presets competitivos automáticos para agilizar armado de equipos
 const COMPETITIVE_PRESETS: Record<string, { item: string; nature: string; moves: [string, string, string, string] }> = {
   garchomp: { item: "Life Orb", nature: "Jolly", moves: ["Earthquake", "Dragon Claw", "Swords Dance", "Protect"] },
   toxapex: { item: "Leftovers", nature: "Bold", moves: ["Scald", "Toxic", "Recover", "Haze"] },
@@ -434,6 +434,80 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  // Generador de Tarjeta de Equipo PNG nativo con Canvas
+  const handleDownloadTeamCard = () => {
+    if (!activeTeam || activeTeam.pokemonList.length === 0) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 630;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Fondo Cyber Dark
+    ctx.fillStyle = "#090b10";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Decoración
+    const grad = ctx.createLinearGradient(0, 0, 1200, 630);
+    grad.addColorStop(0, "rgba(147, 51, 234, 0.2)");
+    grad.addColorStop(1, "rgba(6, 182, 212, 0.1)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Título
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 34px sans-serif";
+    ctx.fillText(`Ultramoon Cobblemon | ${activeTeam.name}`, 50, 65);
+
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "16px sans-serif";
+    ctx.fillText("Composición Competitiva VGC / Cobblemon Gen 9", 50, 95);
+
+    // Tarjetas de los 6 Pokémon
+    activeTeam.pokemonList.forEach((member, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const x = 50 + col * 370;
+      const y = 130 + row * 225;
+
+      // Caja individual
+      ctx.fillStyle = "#12151f";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(x, y, 350, 205, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      // Textos
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 20px sans-serif";
+      ctx.fillText(member.name, x + 20, y + 40);
+
+      ctx.fillStyle = "#f59e0b";
+      ctx.font = "14px monospace";
+      ctx.fillText(`@${member.customItem || "Leftovers"}`, x + 20, y + 65);
+
+      ctx.fillStyle = "#a855f7";
+      ctx.font = "13px sans-serif";
+      ctx.fillText(`Nat: ${member.customNature || "Timid"}`, x + 20, y + 90);
+
+      // Movimientos
+      ctx.fillStyle = "#d1d5db";
+      ctx.font = "12px monospace";
+      const moves = member.customMoves || ["Protect", "Substitute", "Tackle", "Rest"];
+      moves.forEach((m, mIdx) => {
+        ctx.fillText(`• ${m}`, x + 20, y + 120 + mIdx * 18);
+      });
+    });
+
+    const link = document.createElement("a");
+    link.download = `${activeTeam.name.toLowerCase().replace(/\s+/g, "-")}-team.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -464,12 +538,22 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                   Team Builder & Gestor de Equipos
                 </h2>
                 <p className="text-xs text-zinc-400">
-                  Presets Smogon, enlace compartible, matriz de tipos y QR
+                  Presets Smogon, descarga en PNG, enlace compartible y QR
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleDownloadTeamCard}
+                disabled={!activeTeam || activeTeam.pokemonList.length === 0}
+                className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-xs font-semibold text-purple-300 transition flex items-center gap-1.5 disabled:opacity-40"
+                title="Descargar ficha del equipo en imagen PNG"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Descargar PNG</span>
+              </button>
+
               <button
                 onClick={handleCopyLink}
                 disabled={!activeTeam || activeTeam.pokemonList.length === 0}
@@ -480,7 +564,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 }`}
               >
                 {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5 text-purple-400" />}
-                <span>{copiedLink ? "¡Enlace Copiado!" : "Compartir Enlace"}</span>
+                <span>{copiedLink ? "¡Copiado!" : "Compartir Enlace"}</span>
               </button>
 
               <button
@@ -489,7 +573,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-xs font-semibold text-indigo-300 transition flex items-center gap-1.5 disabled:opacity-40"
               >
                 <QrCode className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">QR Móvil</span>
+                <span className="hidden sm:inline">QR</span>
               </button>
 
               <button
@@ -506,7 +590,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           </div>
 
-          {/* Toast de confirmación */}
+          {/* Toast */}
           {sharedToastMessage && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
@@ -559,7 +643,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                 className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-300 transition flex items-center gap-1 shrink-0"
               >
                 <Plus className="w-3.5 h-3.5 text-purple-400" />
-                <span>Nuevo Equipo</span>
+                <span>Nuevo</span>
               </button>
             </div>
 
@@ -611,7 +695,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             )}
           </div>
 
-          {/* Grilla de 6 Slots */}
+          {/* Slots 6 Pokémon */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
@@ -818,7 +902,7 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
             </div>
           )}
 
-          {/* Modal Edición de Pokémon con Presets Competitivos */}
+          {/* Modal Edición de Pokémon con Presets */}
           <AnimatePresence>
             {editingMember && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -849,7 +933,6 @@ export function TeamBuilderModal({ isOpen, onClose }: TeamBuilderModalProps) {
                     </button>
                   </div>
 
-                  {/* Botón de Autocompletado de Set Meta */}
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20">
                     <div className="flex items-center gap-2">
                       <Wand2 className="w-4 h-4 text-purple-400" />
