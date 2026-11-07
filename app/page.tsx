@@ -311,7 +311,7 @@ export default function Home() {
     try {
       const { data, error } = await supabase
         .from("user_profiles")
-        .select("*")
+        .select("id, trainer_name, minecraft_username, preferred_theme, sound_volume, role, created_at, updated_at")
         .eq("id", userId)
         .single();
 
@@ -431,7 +431,6 @@ export default function Home() {
     setUserProfile(null);
   };
 
-  // Acceso libre inmediato: NINGÚN módulo se bloquea jamás
   const handleModuleClick = (module: ToolModule) => {
     if (module.id === "pokewiki") {
       setIsSearchOpen(true);
@@ -850,7 +849,7 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Grilla de Módulos (Todos Abiertos) */}
+        {/* Grilla de Módulos */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredModules.map((module: ToolModule) => {
             const Icon = module.icon;
@@ -925,7 +924,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Modales Principales (Sin ventanas de pago) */}
+      {/* Modales Principales */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       <ProfileModal
