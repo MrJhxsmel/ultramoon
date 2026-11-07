@@ -561,11 +561,12 @@ export default function Home() {
   const isVipUser = useMemo(() => {
     if (simulateFreeUser) return false;
     if (isAdmin) return true;
-    if (userProfile?.subscription_status === "vip") return true;
+    if (userProfile?.subscription_status?.toLowerCase() === "vip") return true;
+    if (currentUser?.email?.toLowerCase() === "entrecausitaspe@gmail.com") return true;
     return false;
-  }, [userProfile?.subscription_status, isAdmin, simulateFreeUser]);
+  }, [userProfile?.subscription_status, isAdmin, simulateFreeUser, currentUser?.email]);
 
-  // Si el usuario es VIP o Admin, NUNCA se bloquea ningún módulo
+  // Si el usuario es VIP o Administrador, NUNCA bloquear ningún módulo
   const isModuleLocked = (module: ToolModule) => {
     if (isVipUser) return false;
     if (!module.flagKey) return false;
