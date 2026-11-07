@@ -417,7 +417,7 @@ export default function Home() {
       )
       .subscribe();
 
-    // 2. Canal Realtime bidireccional (Otorgar y Revocar VIP al instante)
+    // 2. Canal Realtime para perfil del usuario (Otorgar y Revocar en vivo)
     const profilesChannel = supabase
       .channel("public:user_profiles")
       .on(
@@ -428,7 +428,7 @@ export default function Home() {
             const previousStatus = userProfile?.subscription_status;
             setUserProfile(payload.new);
 
-            // Transición hacia VIP
+            // Subió a VIP
             if (payload.new.subscription_status === "vip" && previousStatus !== "vip") {
               setToastAlert({
                 open: true,
@@ -439,7 +439,7 @@ export default function Home() {
               setIsWelcomeVipOpen(true);
             }
 
-            // Transición hacia Free (Revocación)
+            // Revocado a Free
             if (payload.new.subscription_status === "free" && previousStatus === "vip") {
               setToastAlert({
                 open: true,
@@ -447,7 +447,6 @@ export default function Home() {
                 desc: "Tu suscripción ha finalizado o ha sido revocada por el administrador.",
                 type: "feature_locked",
               });
-              // Cerrar inmediatamente cualquier herramienta protegida que tenga abierta
               setActiveModal(null);
               setIsCommandsModalOpen(false);
               setIsEvCloudModalOpen(false);
@@ -542,12 +541,19 @@ export default function Home() {
     setUserProfile(null);
   };
 
+  // Validación de administrador: por rol en base de datos o por correo propietario
+  const isAdmin = useMemo(() => {
+    if (userProfile?.role === "admin") return true;
+    if (currentUser?.email?.toLowerCase() === "mrjhxsmel@gmail.com") return true;
+    return false;
+  }, [userProfile?.role, currentUser?.email]);
+
   const isVipUser = useMemo(() => {
     if (simulateFreeUser) return false;
-    if (userProfile?.role === "admin") return true;
+    if (isAdmin) return true;
     if (userProfile?.subscription_status === "vip") return true;
     return false;
-  }, [userProfile, simulateFreeUser]);
+  }, [userProfile?.subscription_status, isAdmin, simulateFreeUser]);
 
   const isModuleLocked = (module: ToolModule) => {
     if (!module.flagKey) return false;
@@ -663,7 +669,8 @@ export default function Home() {
               </kbd>
             </button>
 
-            {userProfile?.role === "admin" && (
+            {/* BOTÓN OWNER (Asegurado para aparecer siempre a tu cuenta) */}
+            {isAdmin && (
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setIsAdminModalOpen(true)}
