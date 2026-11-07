@@ -13,8 +13,6 @@ import {
   Check,
   Search,
   Sparkles,
-  CheckCircle2,
-  AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -31,6 +29,7 @@ interface SubKey {
   is_used: boolean;
   used_at: string | null;
   created_at: string;
+  used_by_email?: string | null;
 }
 
 interface AdminDashboardModalProps {
@@ -51,8 +50,6 @@ export function AdminDashboardModal({
   const [searchFeature, setSearchFeature] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  // Notificación flotante de confirmación inmediata
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fetchAdminData = async () => {
@@ -64,7 +61,7 @@ export function AdminDashboardModal({
     if (featData) setFeatures(featData);
 
     const { data: keyData } = await supabase
-      .from("subscription_keys")
+      .from("admin_subscription_keys_view")
       .select("*")
       .order("created_at", { ascending: false });
     if (keyData) setKeys(keyData);
@@ -81,28 +78,24 @@ export function AdminDashboardModal({
   const toggleFeature = async (id: string, currentVal: boolean) => {
     const newVal = !currentVal;
 
-    // 1. Actualización visual instantánea en el panel
     setFeatures((prev) =>
       prev.map((f) => (f.id === id ? { ...f, is_premium: newVal } : f))
     );
 
-    // 2. Transmitir el cambio a la página principal al instante
-    onFeatureToggled?.(id, newVal);
+    if (onFeatureToggled) onFeatureToggled(id, newVal);
 
-    // 3. Notificación flotante
     const updatedFeature = features.find((f) => f.id === id);
     const title = updatedFeature?.title || "Módulo";
     setToastMessage(`«${title}» ahora es ${newVal ? "VIP EXCLUSIVO" : "ACCESO LIBRE"}`);
     setTimeout(() => setToastMessage(null), 3000);
 
-    // 4. Guardar en Supabase
     const { error } = await supabase
       .from("feature_flags")
       .update({ is_premium: newVal, updated_at: new Date().toISOString() })
       .eq("id", id);
 
     if (error) {
-      setToastMessage("Error al guardar en Supabase. Revisa tu conexión.");
+      setToastMessage("Error al guardar en Supabase");
     }
   };
 
@@ -119,8 +112,8 @@ export function AdminDashboardModal({
       .select();
 
     if (data && !error) {
-      setKeys([data[0], ...keys]);
-      setToastMessage(`Nueva Key generada: ${randomCode}`);
+      setKeys([{ ...data[0], used_by_email: null }, ...keys]);
+      setToastMessage(`Nueva Key creada: ${randomCode}`);
       setTimeout(() => setToastMessage(null), 3000);
     }
   };
@@ -131,8 +124,8 @@ export function AdminDashboardModal({
     setToastMessage("Key copiada al portapapeles");
     setTimeout(() => {
       setCopiedKey(null);
-      setToastMessage(null);
-    }, 2000);
+      setToastMessage(null), 2000;
+    });
   };
 
   const filteredFeatures = features.filter(
@@ -182,7 +175,6 @@ export function AdminDashboardModal({
             </button>
           </div>
 
-          {/* Toast / Notificación Flotante Inmediata */}
           <AnimatePresence>
             {toastMessage && (
               <motion.div
@@ -203,18 +195,15 @@ export function AdminDashboardModal({
           </AnimatePresence>
 
           <div className="p-5 sm:p-6 overflow-y-auto space-y-6 custom-scrollbar">
-            {/* SECCIÓN 1: SWITCHES DE TODAS LAS FUNCIONES */}
+            {/* SWITCHES DE FUNCIONES */}
             <div className="space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2">
-                    <span>Switches de Funciones ({features.length} Disponibles)</span>
-                    <span className="text-[10px] text-zinc-400 lowercase font-mono">
-                      (en vivo sin recargar)
-                    </span>
+                  <h4 className="text-xs font-black uppercase text-purple-300 tracking-wider">
+                    Switches de Funciones ({features.length} Disponibles)
                   </h4>
                   <p className="text-[11px] text-zinc-400">
-                    Marca qué herramientas requieren membresía VIP de forma instantánea.
+                    Marca qué herramientas requieren membresía VIP en tiempo real.
                   </p>
                 </div>
 
@@ -268,7 +257,7 @@ export function AdminDashboardModal({
               </div>
             </div>
 
-            {/* SECCIÓN 2: GENERADOR DE KEYS */}
+            {/* GENERADOR DE KEYS CON CORREO DEL USUARIO */}
             <div className="space-y-3 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between">
                 <div>
@@ -297,30 +286,39 @@ export function AdminDashboardModal({
                   keys.map((k) => (
                     <div
                       key={k.key_code}
-                      className={`p-3 rounded-xl border flex items-center justify-between text-xs font-mono ${
+                      className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono ${
                         k.is_used
-                          ? "bg-black/20 border-white/5 text-zinc-500 opacity-60"
+                          ? "bg-black/20 border-white/5 text-zinc-500 opacity-75"
                           : "bg-zinc-900 border-purple-500/20 text-purple-200"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <Key className="w-4 h-4 text-purple-400 shrink-0" />
-                        <span className="font-bold tracking-wider">{k.key_code}</span>
-                        <span
-                          className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                            k.is_used
-                              ? "bg-zinc-800 text-zinc-400"
-                              : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                          }`}
-                        >
-                          {k.is_used ? "Canjeada" : "Disponible (30d)"}
-                        </span>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+                        <div className="flex items-center gap-2">
+                          <Key className="w-4 h-4 text-purple-400 shrink-0" />
+                          <span className="font-bold tracking-wider">{k.key_code}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                              k.is_used
+                                ? "bg-zinc-800 text-zinc-400"
+                                : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            }`}
+                          >
+                            {k.is_used ? "Canjeada" : "Disponible (30d)"}
+                          </span>
+                          {k.used_by_email && (
+                            <span className="text-[10px] text-amber-300 font-sans truncate max-w-[200px]">
+                              ({k.used_by_email})
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {!k.is_used && (
                         <button
                           onClick={() => copyKey(k.key_code)}
-                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-sans flex items-center gap-1 text-zinc-300 transition"
+                          className="self-end sm:self-auto px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-sans flex items-center gap-1 text-zinc-300 transition"
                         >
                           {copiedKey === k.key_code ? (
                             <>

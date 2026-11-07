@@ -309,26 +309,20 @@ export default function Home() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
-  // Estados de Usuario, Perfil y Feature Flags
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
-
-  // Modo Simulador de Usuario Gratis para pruebas
   const [simulateFreeUser, setSimulateFreeUser] = useState(false);
 
-  // Temas
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<"all" | "competitive" | "minecraft" | "breeding">("all");
 
-  // Volumen
   const [volume, setVolume] = useState<number>(35);
   const [isVolumePopoverOpen, setIsVolumePopoverOpen] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
 
-  // Especie Destacada
   const [isFeaturedShiny, setIsFeaturedShiny] = useState(false);
   const featuredPokemon = {
     name: "Garchomp",
@@ -396,7 +390,6 @@ export default function Home() {
       else setUserProfile(null);
     });
 
-    // Suscripción en tiempo real a cambios de feature flags
     const channel = supabase
       .channel("public:feature_flags")
       .on(
@@ -569,7 +562,7 @@ export default function Home() {
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8">
-        {/* Cabecera Principal Optimizada para Móvil y Desktop */}
+        {/* Cabecera Principal */}
         <header
           className={`flex items-center justify-between p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl backdrop-blur-2xl border transition-all duration-300 relative z-30 gap-1.5 sm:gap-3 ${
             isLight
@@ -600,9 +593,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Acciones y Botones a la derecha */}
+          {/* Botones Derecha */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
-            {/* Buscador */}
             <button
               onClick={() => setIsSearchOpen(true)}
               className={`p-2 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-2xl border text-xs font-semibold transition flex items-center gap-1.5 ${
@@ -619,7 +611,6 @@ export default function Home() {
               </kbd>
             </button>
 
-            {/* BOTÓN ADMIN PANEL */}
             {userProfile?.role === "admin" && (
               <div className="flex items-center gap-1">
                 <button
@@ -648,7 +639,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* BOTÓN MEMBRESÍA VIP */}
             <button
               onClick={() => setIsSubModalOpen(true)}
               className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border text-xs font-black flex items-center gap-1 transition shrink-0 ${
@@ -664,7 +654,6 @@ export default function Home() {
               </span>
             </button>
 
-            {/* BOTÓN LOGIN / PERFIL (Siempre visible) */}
             {currentUser ? (
               <div className="flex items-center gap-1 shrink-0">
                 <button
@@ -718,7 +707,6 @@ export default function Home() {
               </button>
             )}
 
-            {/* Selector de Temas */}
             <div className="relative hidden xs:block sm:block" ref={themeRef}>
               <button
                 onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
@@ -765,7 +753,6 @@ export default function Home() {
               </AnimatePresence>
             </div>
 
-            {/* Control de Volumen */}
             <div className="relative hidden sm:block" ref={volumeRef}>
               <button
                 onClick={() => setIsVolumePopoverOpen(!isVolumePopoverOpen)}
@@ -966,7 +953,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Filtros de Categoría */}
+        {/* Filtros */}
         <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 custom-scrollbar">
           <div className="flex items-center gap-1.5">
             {[
@@ -996,7 +983,7 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Cuadrícula de Módulos */}
+        {/* Grilla de Módulos */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredModules.map((module: ToolModule) => {
             const Icon = module.icon;
@@ -1094,7 +1081,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Modales de Autenticación, Perfil y Suscripciones */}
+      {/* Modales */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       <ProfileModal
@@ -1115,7 +1102,9 @@ export default function Home() {
         userProfile={userProfile}
         onOpenAuth={() => setIsAuthOpen(true)}
         onSuccessRedeem={() => {
-          if (currentUser) loadUserProfile(currentUser.id);
+          if (currentUser) {
+            loadUserProfile(currentUser.id);
+          }
         }}
       />
 
@@ -1145,7 +1134,6 @@ export default function Home() {
         user={currentUser}
       />
 
-      {/* Herramientas Principales */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
       <DamageCalculatorModal isOpen={activeModal === "damage-calc"} onClose={() => setActiveModal(null)} />
       <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />

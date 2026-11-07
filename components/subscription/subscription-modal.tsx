@@ -28,7 +28,7 @@ export function SubscriptionModal({
 
   if (!isOpen) return null;
 
-  const isVip = userProfile?.subscription_status === "vip";
+  const isVip = userProfile?.subscription_status === "vip" || userProfile?.role === "admin";
 
   const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +50,9 @@ export function SubscriptionModal({
       if (data?.success) {
         setMsg({ type: "success", text: data.message });
         setKeyCode("");
-        onSuccessRedeem?.();
+        if (onSuccessRedeem) {
+          onSuccessRedeem();
+        }
       } else {
         setMsg({ type: "error", text: data?.message || "No se pudo canjear la clave." });
       }
@@ -103,7 +105,6 @@ export function SubscriptionModal({
           </div>
 
           <div className="p-5 sm:p-6 space-y-6">
-            {/* Estado del usuario */}
             {!user ? (
               <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3 text-xs text-amber-200">
                 <span>Debes iniciar sesión para activar tu membresía.</span>
@@ -126,7 +127,7 @@ export function SubscriptionModal({
               </div>
             ) : null}
 
-            {/* SECCIÓN 1: PAGO POR YAPE & QR */}
+            {/* SECCIÓN 1: PAGO POR YAPE */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center bg-zinc-900/60 p-4 rounded-2xl border border-white/5">
               <div className="flex flex-col items-center text-center p-3 rounded-xl bg-black/40 border border-white/5">
                 <div className="w-36 h-36 bg-white rounded-xl p-2 flex items-center justify-center shadow-lg relative overflow-hidden group">
