@@ -54,6 +54,7 @@ import { ExportCommandsModal } from "@/components/team-builder/export-commands-m
 import { EvTrackerCloudModal } from "@/components/mechanics/ev-tracker-cloud-modal";
 import { SubscriptionModal } from "@/components/subscription/subscription-modal";
 import { AdminDashboardModal } from "@/components/admin/admin-dashboard-modal";
+import { VipWelcomeModal } from "@/components/subscription/vip-welcome-modal";
 import { supabase } from "@/lib/supabase";
 
 import type { PokemonData } from "@/types/pokemon";
@@ -307,6 +308,7 @@ export default function Home() {
   const [isEvCloudModalOpen, setIsEvCloudModalOpen] = useState(false);
   const [isSubModalOpen, setIsSubModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isWelcomeVipOpen, setIsWelcomeVipOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -1081,7 +1083,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Modales */}
+      {/* Modales de Autenticación, Perfil y Suscripciones */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       <ProfileModal
@@ -1102,10 +1104,18 @@ export default function Home() {
         userProfile={userProfile}
         onOpenAuth={() => setIsAuthOpen(true)}
         onSuccessRedeem={() => {
+          setIsSubModalOpen(false);
+          setIsWelcomeVipOpen(true);
           if (currentUser) {
             loadUserProfile(currentUser.id);
           }
         }}
+      />
+
+      <VipWelcomeModal
+        isOpen={isWelcomeVipOpen}
+        onClose={() => setIsWelcomeVipOpen(false)}
+        trainerName={displayName}
       />
 
       <AdminDashboardModal
@@ -1134,6 +1144,7 @@ export default function Home() {
         user={currentUser}
       />
 
+      {/* Herramientas Principales */}
       <TeamBuilderModal isOpen={activeModal === "team-builder"} onClose={() => setActiveModal(null)} />
       <DamageCalculatorModal isOpen={activeModal === "damage-calc"} onClose={() => setActiveModal(null)} />
       <PokemonComparator isOpen={activeModal === "speed-tiers"} onClose={() => setActiveModal(null)} />
