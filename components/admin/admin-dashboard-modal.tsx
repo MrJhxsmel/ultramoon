@@ -13,6 +13,9 @@ import {
   Check,
   Search,
   Sparkles,
+  Trash2,
+  UserX,
+  UserCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -30,6 +33,7 @@ interface SubKey {
   used_at: string | null;
   created_at: string;
   used_by_email?: string | null;
+  used_by?: string | null;
 }
 
 interface AdminDashboardModalProps {
@@ -118,14 +122,51 @@ export function AdminDashboardModal({
     }
   };
 
+  const handleDeleteKey = async (keyCode: string) => {
+    if (!confirm(`¿Eliminar la clave ${keyCode}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("subscription_keys")
+      .delete()
+      .eq("key_code", keyCode);
+
+    if (!error) {
+      setKeys((prev) => prev.filter((k) => k.key_code !== keyCode));
+      setToastMessage(`Clave ${keyCode} eliminada.`);
+      setTimeout(() => setToastMessage(null), 2500);
+    } else {
+      setToastMessage("Error al eliminar la clave.");
+    }
+  };
+
+  const handleRevokeUserVip = async (userId: string, email: string) => {
+    if (!confirm(`¿Revocar el estado VIP a ${email}? Pasará a cuenta gratuita.`)) {
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("admin_revoke_user_vip", {
+      target_user_id: userId,
+    });
+
+    if (!error && data?.success) {
+      setToastMessage(`Membresía VIP revocada a ${email}.`);
+      fetchAdminData();
+      setTimeout(() => setToastMessage(null), 3000);
+    } else {
+      setToastMessage(data?.message || "Error al revocar usuario.");
+    }
+  };
+
   const copyKey = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedKey(code);
     setToastMessage("Key copiada al portapapeles");
     setTimeout(() => {
       setCopiedKey(null);
-      setToastMessage(null), 2000;
-    });
+      setToastMessage(null);
+    }, 2000);
   };
 
   const filteredFeatures = features.filter(
@@ -152,7 +193,7 @@ export function AdminDashboardModal({
           className="relative w-full max-w-4xl bg-zinc-950 border border-purple-500/40 rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[92vh]"
         >
           {/* Header */}
-          <div className="p-5 border-b border-white/10 flex items-center justify-between bg-zinc-900/60 shrink-0">
+          <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-zinc-900/60 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
                 <Shield className="w-5 h-5" />
@@ -181,33 +222,33 @@ export function AdminDashboardModal({
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="mx-5 mt-4 p-3 rounded-2xl bg-purple-500/20 border border-purple-500/40 text-purple-200 text-xs flex items-center justify-between shadow-lg"
+                className="mx-4 sm:mx-5 mt-4 p-3 rounded-2xl bg-purple-500/20 border border-purple-500/40 text-purple-200 text-xs flex items-center justify-between shadow-lg"
               >
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
                   <span className="font-bold">{toastMessage}</span>
                 </div>
-                <span className="text-[10px] text-purple-300 font-mono uppercase bg-purple-500/30 px-2 py-0.5 rounded-full">
-                  Sincronizado
+                <span className="text-[10px] text-purple-300 font-mono uppercase bg-purple-500/30 px-2 py-0.5 rounded-full shrink-0 ml-2">
+                  Actualizado
                 </span>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <div className="p-5 sm:p-6 overflow-y-auto space-y-6 custom-scrollbar">
+          <div className="p-4 sm:p-6 overflow-y-auto space-y-6 custom-scrollbar">
             {/* SWITCHES DE FUNCIONES */}
             <div className="space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-black uppercase text-purple-300 tracking-wider">
-                    Switches de Funciones ({features.length} Disponibles)
+                    Switches de Módulos ({features.length} Disponibles)
                   </h4>
                   <p className="text-[11px] text-zinc-400">
                     Marca qué herramientas requieren membresía VIP en tiempo real.
                   </p>
                 </div>
 
-                <div className="relative min-w-[220px]">
+                <div className="relative min-w-[200px]">
                   <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
@@ -219,11 +260,11 @@ export function AdminDashboardModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto custom-scrollbar pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
                 {filteredFeatures.map((feat) => (
                   <div
                     key={feat.id}
-                    className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                    className={`p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
                       feat.is_premium
                         ? "bg-purple-950/20 border-purple-500/40"
                         : "bg-zinc-900/60 border-white/5 hover:border-white/10"
@@ -238,12 +279,12 @@ export function AdminDashboardModal({
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-zinc-400 line-clamp-2">{feat.description}</p>
+                      <p className="text-[10px] text-zinc-400 line-clamp-1">{feat.description}</p>
                     </div>
 
                     <button
                       onClick={() => toggleFeature(feat.id, feat.is_premium)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
                         feat.is_premium
                           ? "bg-amber-400 text-black shadow-md shadow-amber-400/20 hover:bg-amber-300"
                           : "bg-zinc-800 text-zinc-400 hover:text-white"
@@ -257,27 +298,27 @@ export function AdminDashboardModal({
               </div>
             </div>
 
-            {/* GENERADOR DE KEYS CON CORREO DEL USUARIO */}
+            {/* GESTOR DE CLAVES & USUARIOS ACTIVOS */}
             <div className="space-y-3 pt-4 border-t border-white/10">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-black uppercase text-purple-300 tracking-wider">
-                    Generador de Keys (Membresías de 1 Mes)
+                    Gestión de Keys & Membresías de 30 Días
                   </h4>
                   <p className="text-[11px] text-zinc-400">
-                    Crea un código de 30 días para enviar al usuario que confirme su pago en Yape.
+                    Copia, elimina claves no deseadas o remueve el acceso VIP a un usuario.
                   </p>
                 </div>
                 <button
                   onClick={handleGenerateKey}
-                  className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-lg shadow-purple-600/30"
+                  className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-lg shadow-purple-600/30 self-start sm:self-auto"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Crear Key de 30 Días</span>
                 </button>
               </div>
 
-              <div className="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
                 {keys.length === 0 ? (
                   <p className="text-xs text-zinc-500 text-center py-6">
                     Aún no has generado claves. Pulsa el botón superior para crear una.
@@ -288,7 +329,7 @@ export function AdminDashboardModal({
                       key={k.key_code}
                       className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono ${
                         k.is_used
-                          ? "bg-black/20 border-white/5 text-zinc-500 opacity-75"
+                          ? "bg-black/25 border-white/5 text-zinc-400"
                           : "bg-zinc-900 border-purple-500/20 text-purple-200"
                       }`}
                     >
@@ -297,7 +338,7 @@ export function AdminDashboardModal({
                           <Key className="w-4 h-4 text-purple-400 shrink-0" />
                           <span className="font-bold tracking-wider">{k.key_code}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span
                             className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
                               k.is_used
@@ -305,34 +346,58 @@ export function AdminDashboardModal({
                                 : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                             }`}
                           >
-                            {k.is_used ? "Canjeada" : "Disponible (30d)"}
+                            {k.is_used ? "Canjeada" : "Disponible"}
                           </span>
                           {k.used_by_email && (
-                            <span className="text-[10px] text-amber-300 font-sans truncate max-w-[200px]">
+                            <span className="text-[10px] text-amber-300 font-sans truncate max-w-[180px]">
                               ({k.used_by_email})
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {!k.is_used && (
+                      <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                        {!k.is_used && (
+                          <button
+                            onClick={() => copyKey(k.key_code)}
+                            className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-sans flex items-center gap-1 text-zinc-300 transition"
+                            title="Copiar código"
+                          >
+                            {copiedKey === k.key_code ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                <span className="text-emerald-400">Copiada</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copiar</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {/* Botón para revocar VIP al usuario si la key ya fue canjeada */}
+                        {k.is_used && k.used_by && k.used_by_email && (
+                          <button
+                            onClick={() => handleRevokeUserVip(k.used_by!, k.used_by_email!)}
+                            className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[11px] font-sans flex items-center gap-1 transition"
+                            title="Quitar acceso VIP a este usuario"
+                          >
+                            <UserX className="w-3 h-3" />
+                            <span>Revocar VIP</span>
+                          </button>
+                        )}
+
+                        {/* Botón para eliminar la clave */}
                         <button
-                          onClick={() => copyKey(k.key_code)}
-                          className="self-end sm:self-auto px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-sans flex items-center gap-1 text-zinc-300 transition"
+                          onClick={() => handleDeleteKey(k.key_code)}
+                          className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-white/5 transition"
+                          title="Eliminar registro de clave"
                         >
-                          {copiedKey === k.key_code ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-400" />
-                              <span className="text-emerald-400">Copiada</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Copiar</span>
-                            </>
-                          )}
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      )}
+                      </div>
                     </div>
                   ))
                 )}
