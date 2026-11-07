@@ -400,9 +400,9 @@ export default function Home() {
       else setUserProfile(null);
     });
 
-    // 1. Canal Realtime para switches de funciones
+    // Canal Realtime para switches de funciones en vivo
     const flagsChannel = supabase
-      .channel("public:feature_flags")
+      .channel("public_feature_flags_realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "feature_flags" },
@@ -417,9 +417,9 @@ export default function Home() {
       )
       .subscribe();
 
-    // 2. Canal Realtime para perfil del usuario (Otorgar y Revocar en vivo)
+    // Canal Realtime global para detectar al instante VIP otorgado o revocado en cualquier cuenta
     const profilesChannel = supabase
-      .channel("public:user_profiles")
+      .channel("realtime_user_profiles_sync")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "user_profiles" },
@@ -428,7 +428,7 @@ export default function Home() {
             const previousStatus = userProfile?.subscription_status;
             setUserProfile(payload.new);
 
-            // Subió a VIP
+            // Activación VIP instantánea
             if (payload.new.subscription_status === "vip" && previousStatus !== "vip") {
               setToastAlert({
                 open: true,
@@ -439,7 +439,7 @@ export default function Home() {
               setIsWelcomeVipOpen(true);
             }
 
-            // Revocado a Free
+            // Revocación VIP instantánea
             if (payload.new.subscription_status === "free" && previousStatus === "vip") {
               setToastAlert({
                 open: true,
@@ -541,7 +541,7 @@ export default function Home() {
     setUserProfile(null);
   };
 
-  // Validación de administrador: por rol en base de datos o por correo propietario
+  // Validación de administrador segura: por rol en DB o por correo de dueño
   const isAdmin = useMemo(() => {
     if (userProfile?.role === "admin") return true;
     if (currentUser?.email?.toLowerCase() === "mrjhxsmel@gmail.com") return true;
@@ -669,7 +669,7 @@ export default function Home() {
               </kbd>
             </button>
 
-            {/* BOTÓN OWNER (Asegurado para aparecer siempre a tu cuenta) */}
+            {/* BOTÓN OWNER (Siempre visible para tu cuenta) */}
             {isAdmin && (
               <div className="flex items-center gap-1">
                 <button
