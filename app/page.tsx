@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -25,12 +25,6 @@ import {
   ArrowUpRight,
   User,
   LogOut,
-  Lock,
-  Cloud,
-  Crown,
-  Shield,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 
 import { TeamBuilderModal } from "@/components/team-builder/team-builder-modal";
@@ -52,10 +46,6 @@ import { AuthModal } from "@/components/auth/auth-modal";
 import { ProfileModal } from "@/components/profile/profile-modal";
 import { ExportCommandsModal } from "@/components/team-builder/export-commands-modal";
 import { EvTrackerCloudModal } from "@/components/mechanics/ev-tracker-cloud-modal";
-import { SubscriptionModal } from "@/components/subscription/subscription-modal";
-import { AdminDashboardModal } from "@/components/admin/admin-dashboard-modal";
-import { VipWelcomeModal } from "@/components/subscription/vip-welcome-modal";
-import { VipToastAlert } from "@/components/subscription/vip-toast-alert";
 import { supabase } from "@/lib/supabase";
 
 import type { PokemonData } from "@/types/pokemon";
@@ -120,7 +110,6 @@ const THEMES: Record<ThemeMode, ThemeConfig> = {
 
 interface ToolModule {
   id: string;
-  flagKey?: string;
   title: string;
   category: "competitive" | "minecraft" | "breeding";
   badge: string;
@@ -144,10 +133,9 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "team-builder",
-    flagKey: "cloud_team_builder",
     title: "Team Builder & Matchups",
     category: "competitive",
-    badge: "6V6 + CLOUD",
+    badge: "6V6 COMPLETO",
     description: "Tablero interactivo, descarga de tarjeta en PNG, cores FWG/DSF y planes contra arquetipos meta.",
     icon: Users,
     gradient: "from-indigo-500/20 via-blue-500/10 to-transparent",
@@ -155,7 +143,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "damage-calc",
-    flagKey: "damage_calc",
     title: "Calculadora de Daño",
     category: "competitive",
     badge: "BREAKPOINTS",
@@ -166,7 +153,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "speed-tiers",
-    flagKey: "speed_tiers",
     title: "Speed Tiers & Duelo 1v1",
     category: "competitive",
     badge: "SPEED TIERS",
@@ -177,11 +163,10 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "ev-hunting",
-    flagKey: "cloud_ev_tracker",
-    title: "Caza de EVs en la Nube",
+    title: "Caza de EVs",
     category: "breeding",
-    badge: "CLOUD SYNC",
-    description: "Rutas óptimas en Minecraft y rastreador de EVs persistente guardado en Supabase.",
+    badge: "TRACKER",
+    description: "Rutas óptimas en Minecraft y rastreador interactivo de esfuerzo de estadísticas.",
     icon: Compass,
     gradient: "from-yellow-500/20 via-amber-500/10 to-transparent",
     shadowColor: "group-hover:shadow-yellow-500/20",
@@ -189,10 +174,9 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "export-commands",
-    flagKey: "export_commands",
     title: "Generador de Comandos Cobblemon",
     category: "minecraft",
-    badge: "/POKEGIVE PRO",
+    badge: "/POKEGIVE",
     description: "Exporta tus alineaciones a comandos oficiales de Minecraft con IVs, EVs, ataques y objetos.",
     icon: Terminal,
     gradient: "from-fuchsia-500/20 via-purple-500/10 to-transparent",
@@ -201,7 +185,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "weather-terrains",
-    flagKey: "weather_terrains",
     title: "Climas & Terrenos",
     category: "minecraft",
     badge: "MINECRAFT",
@@ -212,7 +195,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "mounts",
-    flagKey: "mounts_guide",
     title: "Monturas & Habilidades",
     category: "minecraft",
     badge: "SUPERVIVENCIA",
@@ -223,7 +205,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "catch-calc",
-    flagKey: "catch_calc",
     title: "Calculadora de Captura",
     category: "minecraft",
     badge: "CONTEXTUAL",
@@ -234,7 +215,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "server-commands",
-    flagKey: "server_commands",
     title: "Comandos de Servidor",
     category: "minecraft",
     badge: "ADMIN & GIVE",
@@ -245,7 +225,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "exp-calc",
-    flagKey: "exp_calc",
     title: "Calculadora de EXP",
     category: "breeding",
     badge: "LEVEL UP",
@@ -256,7 +235,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "breeding",
-    flagKey: "pasture_simulator",
     title: "Pasture & Crianza",
     category: "breeding",
     badge: "GEN 9",
@@ -267,7 +245,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "habitats",
-    flagKey: "habitats_guide",
     title: "Buscador de Hábitats & Drops",
     category: "minecraft",
     badge: "SPAWNS & DROPS",
@@ -278,7 +255,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "evolutions",
-    flagKey: "evolutions_guide",
     title: "Evoluciones & Amistad",
     category: "breeding",
     badge: "220 AMISTAD",
@@ -289,7 +265,6 @@ const MODULES: ToolModule[] = [
   },
   {
     id: "apricorns",
-    flagKey: "apricorns_guide",
     title: "Apricorns & Bayas",
     category: "breeding",
     badge: "CRAFTEO",
@@ -307,22 +282,10 @@ export default function Home() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCommandsModalOpen, setIsCommandsModalOpen] = useState(false);
   const [isEvCloudModalOpen, setIsEvCloudModalOpen] = useState(false);
-  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-  const [isWelcomeVipOpen, setIsWelcomeVipOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
-
-  const [toastAlert, setToastAlert] = useState<{
-    open: boolean;
-    title: string;
-    desc: string;
-    type: "vip_granted" | "feature_locked";
-  }>({ open: false, title: "", desc: "", type: "vip_granted" });
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
-  const [simulateFreeUser, setSimulateFreeUser] = useState(false);
 
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>("midnight");
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
@@ -364,19 +327,6 @@ export default function Home() {
     } catch (e) {}
   };
 
-  const loadFeatureFlags = async () => {
-    try {
-      const { data } = await supabase.from("feature_flags").select("*");
-      if (data) {
-        const flags: Record<string, boolean> = {};
-        data.forEach((f) => {
-          flags[f.id] = f.is_premium;
-        });
-        setFeatureFlags(flags);
-      }
-    } catch (e) {}
-  };
-
   useEffect(() => {
     const savedTheme = localStorage.getItem("ultramoon_theme") as ThemeMode | null;
     if (savedTheme && THEMES[savedTheme]) setCurrentTheme(savedTheme);
@@ -384,86 +334,19 @@ export default function Home() {
     const savedVol = localStorage.getItem("ultramoon_sound_volume");
     if (savedVol !== null) setVolume(Number(savedVol));
 
-    loadFeatureFlags();
-
-    let profilesChannel: any = null;
-    let flagsChannel: any = null;
-
-    flagsChannel = supabase
-      .channel("flags_realtime_stream")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "feature_flags" },
-        (payload: any) => {
-          if (payload.new && payload.new.id) {
-            setFeatureFlags((prev) => ({
-              ...prev,
-              [payload.new.id]: payload.new.is_premium,
-            }));
-          }
-        }
-      )
-      .subscribe();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const user = session?.user ?? null;
-        setCurrentUser(user);
-
-        if (user) {
-          await loadUserProfile(user.id);
-
-          if (profilesChannel) supabase.removeChannel(profilesChannel);
-
-          profilesChannel = supabase
-            .channel("global_user_profiles_channel")
-            .on(
-              "postgres_changes",
-              {
-                event: "UPDATE",
-                schema: "public",
-                table: "user_profiles",
-              },
-              (payload: any) => {
-                if (payload.new && payload.new.id === user.id) {
-                  setUserProfile((prev: any) => {
-                    const prevStatus = prev?.subscription_status;
-                    const nextStatus = payload.new.subscription_status;
-
-                    if (nextStatus === "vip" && prevStatus !== "vip") {
-                      setToastAlert({
-                        open: true,
-                        title: "¡Has sido ascendido a VIP!",
-                        desc: "Acceso total activado en este momento.",
-                        type: "vip_granted",
-                      });
-                      setIsWelcomeVipOpen(true);
-                    }
-
-                    if (nextStatus === "free" && prevStatus === "vip") {
-                      setToastAlert({
-                        open: true,
-                        title: "Membresía Finalizada",
-                        desc: "Tu suscripción ha cambiado a gratuita.",
-                        type: "feature_locked",
-                      });
-                      setActiveModal(null);
-                      setIsCommandsModalOpen(false);
-                      setIsEvCloudModalOpen(false);
-                    }
-
-                    return payload.new;
-                  });
-                }
-              }
-            )
-            .subscribe();
-        } else {
-          setUserProfile(null);
-          if (profilesChannel) supabase.removeChannel(profilesChannel);
-        }
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        setCurrentUser(data.user);
+        loadUserProfile(data.user.id);
       }
-    );
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+      setCurrentUser(user);
+      if (user) loadUserProfile(user.id);
+      else setUserProfile(null);
+    });
 
     const handleClickOutside = (e: MouseEvent) => {
       if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
@@ -495,8 +378,6 @@ export default function Home() {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
       authListener?.subscription.unsubscribe();
-      if (flagsChannel) supabase.removeChannel(flagsChannel);
-      if (profilesChannel) supabase.removeChannel(profilesChannel);
     };
   }, []);
 
@@ -550,61 +431,34 @@ export default function Home() {
     setUserProfile(null);
   };
 
-  const isAdmin = useMemo(() => {
-    if (userProfile?.role === "admin") return true;
-    if (currentUser?.email?.toLowerCase() === "mrjhxsmel@gmail.com") return true;
-    return false;
-  }, [userProfile?.role, currentUser?.email]);
-
-  const isVipUser = useMemo(() => {
-    if (simulateFreeUser) return false;
-    if (isAdmin) return true;
-    if (userProfile?.subscription_status?.toLowerCase() === "vip") return true;
-    if (currentUser?.email?.toLowerCase() === "entrecausitaspe@gmail.com") return true;
-    return false;
-  }, [userProfile?.subscription_status, isAdmin, simulateFreeUser, currentUser?.email]);
-
-  // Si el usuario es VIP o Administrador, NUNCA bloquear ningún módulo
-  const isModuleLocked = (module: ToolModule) => {
-    if (isVipUser) return false;
-    if (!module.flagKey) return false;
-    return Boolean(featureFlags[module.flagKey]);
-  };
-
+  // Acceso libre inmediato: NINGÚN módulo se bloquea jamás
   const handleModuleClick = (module: ToolModule) => {
     if (module.id === "pokewiki") {
       setIsSearchOpen(true);
       return;
     }
 
-    if (isModuleLocked(module)) {
-      if (!currentUser) {
-        setIsAuthOpen(true);
+    if (module.id === "ev-hunting") {
+      if (currentUser) {
+        setIsEvCloudModalOpen(true);
       } else {
-        setIsSubModalOpen(true);
+        setActiveModal("ev-hunting");
       }
       return;
     }
 
-    if (module.id === "ev-hunting") {
-      if (!currentUser) setIsAuthOpen(true);
-      else setIsEvCloudModalOpen(true);
-      return;
-    }
-
     if (module.id === "export-commands") {
-      if (!currentUser) setIsAuthOpen(true);
-      else setIsCommandsModalOpen(true);
+      setIsCommandsModalOpen(true);
       return;
     }
 
     setActiveModal(module.id);
   };
 
-  const filteredModules = useMemo(() => {
-    if (activeCategory === "all") return MODULES;
-    return MODULES.filter((m) => m.category === activeCategory);
-  }, [activeCategory]);
+  const filteredModules =
+    activeCategory === "all"
+      ? MODULES
+      : MODULES.filter((m) => m.category === activeCategory);
 
   const currentThemeConfig = THEMES[currentTheme];
   const isLight = currentTheme === "quartz";
@@ -676,50 +530,6 @@ export default function Home() {
               <kbd className="px-1.5 py-0.5 text-[9px] rounded bg-white/10 font-mono hidden md:inline">
                 ⌘K
               </kbd>
-            </button>
-
-            {/* BOTÓN OWNER */}
-            {isAdmin && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setIsAdminModalOpen(true)}
-                  className="p-2 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-black flex items-center gap-1 transition shrink-0"
-                  title="Abrir Dashboard de Administrador"
-                >
-                  <Shield className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="hidden sm:inline">Owner</span>
-                </button>
-                <button
-                  onClick={() => setSimulateFreeUser(!simulateFreeUser)}
-                  className={`p-1.5 rounded-xl sm:rounded-2xl border transition ${
-                    simulateFreeUser
-                      ? "bg-amber-400 text-black border-amber-300 font-bold"
-                      : "bg-zinc-800/80 border-white/10 text-zinc-400 hover:text-white"
-                  }`}
-                  title={
-                    simulateFreeUser
-                      ? "Modo Invitado activo (viendo la web como usuario gratis)"
-                      : "Ver la web como usuario gratis"
-                  }
-                >
-                  {simulateFreeUser ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                </button>
-              </div>
-            )}
-
-            <button
-              onClick={() => setIsSubModalOpen(true)}
-              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border text-xs font-black flex items-center gap-1 transition shrink-0 ${
-                isVipUser
-                  ? "bg-amber-400/20 border-amber-400/40 text-amber-300 shadow-md shadow-amber-400/20"
-                  : "bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/30 text-amber-300"
-              }`}
-              title="Membresía VIP"
-            >
-              <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="text-[11px] font-bold">
-                {isVipUser ? "VIP" : "VIP"}
-              </span>
             </button>
 
             {currentUser ? (
@@ -880,7 +690,7 @@ export default function Home() {
             <div className="max-w-xl space-y-3 sm:space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/15 border border-purple-500/30 text-purple-300">
                 <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-spin" style={{ animationDuration: "6s" }} />
-                <span>Cobblemon Gen 9 Meta Suite · Sincronización Cloud</span>
+                <span>Cobblemon Gen 9 Meta Suite · Acceso Total</span>
               </div>
 
               <h2 className="text-2xl sm:text-5xl font-black tracking-tight leading-tight">
@@ -891,7 +701,7 @@ export default function Home() {
               </h2>
 
               <p className="text-xs sm:text-base opacity-80 leading-relaxed">
-                Arma alineaciones 6v6, exporta comandos <code className="text-purple-300 font-mono text-xs">/pokegive</code> para Minecraft y guarda tus metas de EVs en tu cuenta de Supabase con membresía VIP.
+                Arma alineaciones 6v6, exporta comandos <code className="text-purple-300 font-mono text-xs">/pokegive</code> para Minecraft y usa todos los simuladores sin ningún límite ni candado.
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-2">
@@ -905,33 +715,22 @@ export default function Home() {
 
                 <button
                   onClick={() => {
-                    if (isModuleLocked(MODULES[4])) {
-                      if (!currentUser) setIsAuthOpen(true);
-                      else setIsSubModalOpen(true);
-                    } else {
-                      setIsEvCloudModalOpen(true);
-                    }
+                    if (currentUser) setIsEvCloudModalOpen(true);
+                    else setActiveModal("ev-hunting");
                   }}
                   className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl font-semibold text-xs border transition flex items-center gap-1.5 ${
                     isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
                   }`}
                 >
                   <Compass className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Rastreador de EVs Cloud</span>
+                  <span>Rastreador de EVs</span>
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     NUEVO
                   </span>
                 </button>
 
                 <button
-                  onClick={() => {
-                    if (isModuleLocked(MODULES[5])) {
-                      if (!currentUser) setIsAuthOpen(true);
-                      else setIsSubModalOpen(true);
-                    } else {
-                      setIsCommandsModalOpen(true);
-                    }
-                  }}
+                  onClick={() => setIsCommandsModalOpen(true)}
                   className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl font-semibold text-xs border transition flex items-center gap-1.5 ${
                     isLight ? "bg-white hover:bg-slate-100 border-slate-200" : "bg-white/5 hover:bg-white/10 border-white/10"
                   }`}
@@ -1051,11 +850,10 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Grilla de Módulos */}
+        {/* Grilla de Módulos (Todos Abiertos) */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredModules.map((module: ToolModule) => {
             const Icon = module.icon;
-            const locked = isModuleLocked(module);
 
             return (
               <motion.div
@@ -1063,9 +861,7 @@ export default function Home() {
                 whileHover={{ y: -6, scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={() => handleModuleClick(module)}
-                className={`group relative p-5 sm:p-6 rounded-2xl sm:rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor} ${
-                  locked ? "ring-1 ring-amber-500/20" : ""
-                }`}
+                className={`group relative p-5 sm:p-6 rounded-2xl sm:rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${currentThemeConfig.cardBg} ${currentThemeConfig.cardBorder} ${module.shadowColor}`}
               >
                 <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${module.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
 
@@ -1073,11 +869,6 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 relative">
                       <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 group-hover:text-white transition" />
-                      {locked && (
-                        <div className="absolute -top-1.5 -right-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-400 text-black flex items-center justify-center shadow-md">
-                          <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -1087,28 +878,15 @@ export default function Home() {
                         </span>
                       )}
 
-                      {locked ? (
-                        <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center gap-1">
-                          <Lock className="w-3 h-3" />
-                          <span>Requiere VIP</span>
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-white/5 border border-white/10 opacity-80 flex items-center gap-1">
-                          {module.flagKey && <Cloud className="w-3 h-3 text-purple-400" />}
-                          <span>{module.badge}</span>
-                        </span>
-                      )}
+                      <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-white/5 border border-white/10 opacity-80">
+                        {module.badge}
+                      </span>
                     </div>
                   </div>
 
                   <div>
-                    <h3 className="text-sm sm:text-base font-bold tracking-tight group-hover:text-purple-300 transition-colors flex items-center gap-2">
-                      <span>{module.title}</span>
-                      {module.flagKey && (
-                        <span className="text-[10px] text-purple-400 font-mono">
-                          [PRO]
-                        </span>
-                      )}
+                    <h3 className="text-sm sm:text-base font-bold tracking-tight group-hover:text-purple-300 transition-colors">
+                      {module.title}
                     </h3>
                     <p className="mt-1.5 text-xs opacity-70 leading-relaxed">
                       {module.description}
@@ -1117,9 +895,7 @@ export default function Home() {
                 </div>
 
                 <div className="relative z-10 mt-5 pt-3 sm:mt-6 sm:pt-4 border-t border-white/5 flex items-center justify-between text-xs font-semibold opacity-60 group-hover:opacity-100 transition">
-                  <span className={locked ? "text-amber-300" : ""}>
-                    {locked ? "Desbloquear con Membresía VIP" : "Abrir simulador"}
-                  </span>
+                  <span>Abrir simulador</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
                 </div>
               </motion.div>
@@ -1149,7 +925,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Modales */}
+      {/* Modales Principales (Sin ventanas de pago) */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       <ProfileModal
@@ -1160,47 +936,6 @@ export default function Home() {
           setUserProfile(updated);
           if (updated.preferred_theme) setCurrentTheme(updated.preferred_theme);
           if (updated.sound_volume !== undefined) setVolume(updated.sound_volume);
-        }}
-      />
-
-      <SubscriptionModal
-        isOpen={isSubModalOpen}
-        onClose={() => setIsSubModalOpen(false)}
-        user={currentUser}
-        userProfile={userProfile}
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onSuccessRedeem={() => {
-          setIsSubModalOpen(false);
-          setIsWelcomeVipOpen(true);
-          if (currentUser) {
-            loadUserProfile(currentUser.id);
-          }
-        }}
-      />
-
-      <VipWelcomeModal
-        isOpen={isWelcomeVipOpen}
-        onClose={() => setIsWelcomeVipOpen(false)}
-        trainerName={displayName}
-      />
-
-      <VipToastAlert
-        isOpen={toastAlert.open}
-        onClose={() => setToastAlert((prev) => ({ ...prev, open: false }))}
-        title={toastAlert.title}
-        description={toastAlert.desc}
-        type={toastAlert.type}
-      />
-
-      <AdminDashboardModal
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
-        user={currentUser}
-        onFeatureToggled={(featId, isPremium) => {
-          setFeatureFlags((prev) => ({
-            ...prev,
-            [featId]: isPremium,
-          }));
         }}
       />
 
