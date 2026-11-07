@@ -238,7 +238,7 @@ const MODULES: ToolModule[] = [
     title: "Comandos de Servidor",
     category: "minecraft",
     badge: "ADMIN & GIVE",
-    description: "Generador de comandos /pokegive, /pokespawn con IVs y /give de ítems competitivos.",
+    description: "Generador de comandos /pokegive y /pokespawn con IVs y /give de ítems competitivos.",
     icon: Terminal,
     gradient: "from-fuchsia-500/20 via-purple-500/10 to-transparent",
     shadowColor: "group-hover:shadow-fuchsia-500/20",
@@ -389,7 +389,6 @@ export default function Home() {
     let profilesChannel: any = null;
     let flagsChannel: any = null;
 
-    // Escucha permanente de switches de funciones en vivo
     flagsChannel = supabase
       .channel("flags_realtime_stream")
       .on(
@@ -406,7 +405,6 @@ export default function Home() {
       )
       .subscribe();
 
-    // Sincronización continua de perfil sin filtros restrictivos de SQL
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         const user = session?.user ?? null;
