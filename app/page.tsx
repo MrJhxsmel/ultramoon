@@ -417,7 +417,7 @@ export default function Home() {
       )
       .subscribe();
 
-    // 2. Canal Realtime para perfil del usuario
+    // 2. Canal Realtime bidireccional (Otorgar y Revocar VIP al instante)
     const profilesChannel = supabase
       .channel("public:user_profiles")
       .on(
@@ -428,7 +428,7 @@ export default function Home() {
             const previousStatus = userProfile?.subscription_status;
             setUserProfile(payload.new);
 
-            // Alerta si pasó a VIP en vivo
+            // Transición hacia VIP
             if (payload.new.subscription_status === "vip" && previousStatus !== "vip") {
               setToastAlert({
                 open: true,
@@ -437,6 +437,20 @@ export default function Home() {
                 type: "vip_granted",
               });
               setIsWelcomeVipOpen(true);
+            }
+
+            // Transición hacia Free (Revocación)
+            if (payload.new.subscription_status === "free" && previousStatus === "vip") {
+              setToastAlert({
+                open: true,
+                title: "Membresía VIP Finalizada",
+                desc: "Tu suscripción ha finalizado o ha sido revocada por el administrador.",
+                type: "feature_locked",
+              });
+              // Cerrar inmediatamente cualquier herramienta protegida que tenga abierta
+              setActiveModal(null);
+              setIsCommandsModalOpen(false);
+              setIsEvCloudModalOpen(false);
             }
           }
         }
@@ -1119,7 +1133,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Modales de Autenticación, Perfil y Suscripciones */}
+      {/* Modales */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       <ProfileModal
