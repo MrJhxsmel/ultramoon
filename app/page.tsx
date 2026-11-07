@@ -386,23 +386,12 @@ export default function Home() {
 
     loadFeatureFlags();
 
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        setCurrentUser(data.user);
-        loadUserProfile(data.user.id);
-      }
-    });
+    let profilesChannel: any = null;
+    let flagsChannel: any = null;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      setCurrentUser(user);
-      if (user) loadUserProfile(user.id);
-      else setUserProfile(null);
-    });
-
-    // Canal Realtime para switches de funciones en vivo
-    const flagsChannel = supabase
-      .channel("public_feature_flags_realtime")
+    // Escucha permanente de switches de módulos en vivo
+    flagsChannel = supabase
+      .channel("flags_realtime_stream")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "feature_flags" },
@@ -417,44 +406,67 @@ export default function Home() {
       )
       .subscribe();
 
-    // Canal Realtime global para detectar al instante VIP otorgado o revocado en cualquier cuenta
-    const profilesChannel = supabase
-      .channel("realtime_user_profiles_sync")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "user_profiles" },
-        (payload: any) => {
-          if (currentUser && payload.new && payload.new.id === currentUser.id) {
-            const previousStatus = userProfile?.subscription_status;
-            setUserProfile(payload.new);
+    // Sincronización continua de perfil sin filtros restrictivos de SQL
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const user = session?.user ?? null;
+        setCurrentUser(user);
 
-            // Activación VIP instantánea
-            if (payload.new.subscription_status === "vip" && previousStatus !== "vip") {
-              setToastAlert({
-                open: true,
-                title: "¡Has sido ascendido a VIP!",
-                desc: "El administrador activó tu acceso de 30 días a todas las funciones.",
-                type: "vip_granted",
-              });
-              setIsWelcomeVipOpen(true);
-            }
+        if (user) {
+          await loadUserProfile(user.id);
 
-            // Revocación VIP instantánea
-            if (payload.new.subscription_status === "free" && previousStatus === "vip") {
-              setToastAlert({
-                open: true,
-                title: "Membresía VIP Finalizada",
-                desc: "Tu suscripción ha finalizado o ha sido revocada por el administrador.",
-                type: "feature_locked",
-              });
-              setActiveModal(null);
-              setIsCommandsModalOpen(false);
-              setIsEvCloudModalOpen(false);
-            }
-          }
+          if (profilesChannel) supabase.removeChannel(profilesChannel);
+
+          profilesChannel = supabase
+            .channel("global_user_profiles_channel")
+            .on(
+              "postgres_changes",
+              {
+                event: "UPDATE",
+                schema: "public",
+                table: "user_profiles",
+              },
+              (payload: any) => {
+                // Filtrar por ID del usuario activo directamente en la aplicación
+                if (payload.new && payload.new.id === user.id) {
+                  setUserProfile((prev: any) => {
+                    const prevStatus = prev?.subscription_status;
+                    const nextStatus = payload.new.subscription_status;
+
+                    if (nextStatus === "vip" && prevStatus !== "vip") {
+                      setToastAlert({
+                        open: true,
+                        title: "¡Has sido ascendido a VIP!",
+                        desc: "Acceso total activado en este momento.",
+                        type: "vip_granted",
+                      });
+                      setIsWelcomeVipOpen(true);
+                    }
+
+                    if (nextStatus === "free" && prevStatus === "vip") {
+                      setToastAlert({
+                        open: true,
+                        title: "Membresía Finalizada",
+                        desc: "Tu suscripción ha cambiado a gratuita.",
+                        type: "feature_locked",
+                      });
+                      setActiveModal(null);
+                      setIsCommandsModalOpen(false);
+                      setIsEvCloudModalOpen(false);
+                    }
+
+                    return payload.new;
+                  });
+                }
+              }
+            )
+            .subscribe();
+        } else {
+          setUserProfile(null);
+          if (profilesChannel) supabase.removeChannel(profilesChannel);
         }
-      )
-      .subscribe();
+      }
+    );
 
     const handleClickOutside = (e: MouseEvent) => {
       if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
@@ -486,10 +498,10 @@ export default function Home() {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
       authListener?.subscription.unsubscribe();
-      supabase.removeChannel(flagsChannel);
-      supabase.removeChannel(profilesChannel);
+      if (flagsChannel) supabase.removeChannel(flagsChannel);
+      if (profilesChannel) supabase.removeChannel(profilesChannel);
     };
-  }, [currentUser?.id, userProfile?.subscription_status]);
+  }, []);
 
   const handleSelectTheme = async (theme: ThemeMode) => {
     setCurrentTheme(theme);
@@ -541,7 +553,6 @@ export default function Home() {
     setUserProfile(null);
   };
 
-  // Validación de administrador segura: por rol en DB o por correo de dueño
   const isAdmin = useMemo(() => {
     if (userProfile?.role === "admin") return true;
     if (currentUser?.email?.toLowerCase() === "mrjhxsmel@gmail.com") return true;
@@ -669,7 +680,7 @@ export default function Home() {
               </kbd>
             </button>
 
-            {/* BOTÓN OWNER (Siempre visible para tu cuenta) */}
+            {/* BOTÓN OWNER */}
             {isAdmin && (
               <div className="flex items-center gap-1">
                 <button
