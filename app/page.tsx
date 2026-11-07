@@ -392,7 +392,8 @@ export default function Home() {
       else setUserProfile(null);
     });
 
-    const channel = supabase
+    // 1. Canal Realtime para los switches de funciones
+    const flagsChannel = supabase
       .channel("public:feature_flags")
       .on(
         "postgres_changes",
@@ -403,6 +404,23 @@ export default function Home() {
               ...prev,
               [payload.new.id]: payload.new.is_premium,
             }));
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. Canal Realtime para detectar VIP otorgado por correo en vivo
+    const profilesChannel = supabase
+      .channel("public:user_profiles")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "user_profiles" },
+        (payload: any) => {
+          if (currentUser && payload.new && payload.new.id === currentUser.id) {
+            setUserProfile(payload.new);
+            if (payload.new.subscription_status === "vip" && userProfile?.subscription_status !== "vip") {
+              setIsWelcomeVipOpen(true);
+            }
           }
         }
       )
@@ -438,9 +456,10 @@ export default function Home() {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
       authListener?.subscription.unsubscribe();
-      supabase.removeChannel(channel);
+      supabase.removeChannel(flagsChannel);
+      supabase.removeChannel(profilesChannel);
     };
-  }, []);
+  }, [currentUser?.id, userProfile?.subscription_status]);
 
   const handleSelectTheme = async (theme: ThemeMode) => {
     setCurrentTheme(theme);
