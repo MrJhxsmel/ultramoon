@@ -18,6 +18,7 @@ import {
   UserCheck,
   Mail,
   Send,
+  Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -38,6 +39,15 @@ interface SubKey {
   used_by?: string | null;
 }
 
+interface ActiveVipUser {
+  user_id: string;
+  email: string;
+  trainer_name?: string | null;
+  subscription_status: string;
+  subscription_expires_at: string | null;
+  updated_at: string;
+}
+
 interface AdminDashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -53,29 +63,39 @@ export function AdminDashboardModal({
 }: AdminDashboardModalProps) {
   const [features, setFeatures] = useState<FeatureFlag[]>([]);
   const [keys, setKeys] = useState<SubKey[]>([]);
+  const [activeVips, setActiveVips] = useState<ActiveVipUser[]>([]);
   const [searchFeature, setSearchFeature] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Estado para otorgar VIP por correo
+  // Otorgar VIP por correo
   const [grantEmail, setGrantEmail] = useState("");
   const [grantDays, setGrantDays] = useState(30);
   const [isGranting, setIsGranting] = useState(false);
 
   const fetchAdminData = async () => {
     setLoading(true);
+
+    // 1. Cargar Features
     const { data: featData } = await supabase
       .from("feature_flags")
       .select("*")
       .order("title", { ascending: true });
     if (featData) setFeatures(featData);
 
+    // 2. Cargar Keys
     const { data: keyData } = await supabase
       .from("admin_subscription_keys_view")
       .select("*")
       .order("created_at", { ascending: false });
     if (keyData) setKeys(keyData);
+
+    // 3. Cargar Usuarios VIP Activos
+    const { data: vipsData } = await supabase
+      .from("admin_active_vips_view")
+      .select("*");
+    if (vipsData) setActiveVips(vipsData);
 
     setLoading(false);
   };
@@ -138,6 +158,24 @@ export function AdminDashboardModal({
     }
   };
 
+  const handleRevokeUserVip = async (userId: string, email: string) => {
+    if (!confirm(`¿Revocar el estado VIP a ${email}? Pasará a cuenta gratuita.`)) {
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("admin_revoke_user_vip", {
+      target_user_id: userId,
+    });
+
+    if (!error && data?.success) {
+      setToastMessage(`Membresía VIP revocada a ${email}.`);
+      fetchAdminData();
+      setTimeout(() => setToastMessage(null), 3000);
+    } else {
+      setToastMessage(data?.message || "Error al revocar usuario.");
+    }
+  };
+
   const handleGenerateKey = async () => {
     const randomCode =
       "ULTRA-" +
@@ -173,24 +211,6 @@ export function AdminDashboardModal({
       setTimeout(() => setToastMessage(null), 2500);
     } else {
       setToastMessage("Error al eliminar la clave.");
-    }
-  };
-
-  const handleRevokeUserVip = async (userId: string, email: string) => {
-    if (!confirm(`¿Revocar el estado VIP a ${email}? Pasará a cuenta gratuita.`)) {
-      return;
-    }
-
-    const { data, error } = await supabase.rpc("admin_revoke_user_vip", {
-      target_user_id: userId,
-    });
-
-    if (!error && data?.success) {
-      setToastMessage(`Membresía VIP revocada a ${email}.`);
-      fetchAdminData();
-      setTimeout(() => setToastMessage(null), 3000);
-    } else {
-      setToastMessage(data?.message || "Error al revocar usuario.");
     }
   };
 
@@ -271,7 +291,7 @@ export function AdminDashboardModal({
           </AnimatePresence>
 
           <div className="p-4 sm:p-6 overflow-y-auto space-y-6 custom-scrollbar">
-            {/* SECCIÓN 1: OTORGAR VIP DIRECTO POR CORREO */}
+            {/* SECCIÓN 1: ASIGNAR VIP POR CORREO */}
             <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-transparent border border-amber-400/30 space-y-3">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-amber-400" />
@@ -280,7 +300,7 @@ export function AdminDashboardModal({
                 </h4>
               </div>
               <p className="text-[11px] text-zinc-400">
-                Asigna membresía instantánea a un usuario registrado sin necesidad de generar ni canjear clave.
+                Escribe el correo del usuario registrado para darle acceso instantáneo.
               </p>
 
               <form onSubmit={handleGrantVipByEmail} className="flex flex-col sm:flex-row gap-2">
@@ -302,10 +322,10 @@ export function AdminDashboardModal({
                     onChange={(e) => setGrantDays(Number(e.target.value))}
                     className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
                   >
-                    <option value={30}>30 Días (1 Mes)</option>
-                    <option value={60}>60 Días (2 Meses)</option>
-                    <option value={90}>90 Días (3 Meses)</option>
-                    <option value={365}>365 Días (1 Año)</option>
+                    <option value={30}>30 Días</option>
+                    <option value={60}>60 Días</option>
+                    <option value={90}>90 Días</option>
+                    <option value={365}>1 Año</option>
                   </select>
 
                   <button
@@ -314,14 +334,68 @@ export function AdminDashboardModal({
                     className="px-4 py-2 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-black font-black text-xs rounded-xl flex items-center gap-1.5 transition shrink-0 shadow-md shadow-amber-400/20"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{isGranting ? "Activando..." : "Dar VIP"}</span>
+                    <span>{isGranting ? "Asignando..." : "Dar VIP"}</span>
                   </button>
                 </div>
               </form>
             </div>
 
-            {/* SECCIÓN 2: SWITCHES DE FUNCIONES */}
-            <div className="space-y-3">
+            {/* SECCIÓN 2: LISTA DE USUARIOS VIP ACTIVOS (AQUÍ APARECEN TODOS PARA REVOCAR) */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black uppercase text-amber-300 tracking-wider flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    <span>Usuarios con VIP Activo ({activeVips.length})</span>
+                  </h4>
+                  <p className="text-[11px] text-zinc-400">
+                    Todos los miembros activos en el sistema (por correo o canje de clave).
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                {activeVips.length === 0 ? (
+                  <p className="text-xs text-zinc-500 text-center py-4 bg-zinc-900/40 rounded-xl border border-white/5">
+                    No hay ningún usuario con rango VIP en este momento.
+                  </p>
+                ) : (
+                  activeVips.map((v) => (
+                    <div
+                      key={v.user_id}
+                      className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white">{v.email}</span>
+                          <span className="px-2 py-0.2 rounded-full text-[9px] font-black uppercase bg-amber-400 text-black">
+                            VIP ACTIVO
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-400">
+                          {v.trainer_name ? `Entrenador: ${v.trainer_name} · ` : ""}
+                          Expira:{" "}
+                          {v.subscription_expires_at
+                            ? new Date(v.subscription_expires_at).toLocaleDateString()
+                            : "Indefinido"}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleRevokeUserVip(v.user_id, v.email)}
+                        className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition self-end sm:self-auto"
+                      >
+                        <UserX className="w-3.5 h-3.5" />
+                        <span>Revocar VIP</span>
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* SECCIÓN 3: SWITCHES DE FUNCIONES */}
+            <div className="space-y-3 pt-4 border-t border-white/10">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-black uppercase text-purple-300 tracking-wider">
@@ -344,7 +418,7 @@ export function AdminDashboardModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
                 {filteredFeatures.map((feat) => (
                   <div
                     key={feat.id}
@@ -382,15 +456,15 @@ export function AdminDashboardModal({
               </div>
             </div>
 
-            {/* SECCIÓN 3: GESTIÓN DE KEYS & REVOCACIÓN */}
+            {/* SECCIÓN 4: GESTIÓN DE KEYS DE 30 DÍAS */}
             <div className="space-y-3 pt-4 border-t border-white/10">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-black uppercase text-purple-300 tracking-wider">
-                    Gestión de Keys de 30 Días
+                    Generador de Keys de 30 Días
                   </h4>
                   <p className="text-[11px] text-zinc-400">
-                    Genera claves de contingencia para usuarios que paguen por Yape.
+                    Crea claves para usuarios que paguen por Yape.
                   </p>
                 </div>
                 <button
@@ -398,84 +472,56 @@ export function AdminDashboardModal({
                   className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-lg shadow-purple-600/30 self-start sm:self-auto"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Crear Key de 30 Días</span>
+                  <span>Crear Key</span>
                 </button>
               </div>
 
-              <div className="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
                 {keys.length === 0 ? (
-                  <p className="text-xs text-zinc-500 text-center py-6">
-                    Aún no has generado claves. Pulsa el botón superior para crear una.
+                  <p className="text-xs text-zinc-500 text-center py-4">
+                    No hay claves generadas actualmente.
                   </p>
                 ) : (
                   keys.map((k) => (
                     <div
                       key={k.key_code}
-                      className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono ${
+                      className={`p-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono ${
                         k.is_used
                           ? "bg-black/25 border-white/5 text-zinc-400"
                           : "bg-zinc-900 border-purple-500/20 text-purple-200"
                       }`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
-                        <div className="flex items-center gap-2">
-                          <Key className="w-4 h-4 text-purple-400 shrink-0" />
-                          <span className="font-bold tracking-wider">{k.key_code}</span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                              k.is_used
-                                ? "bg-zinc-800 text-zinc-400"
-                                : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                            }`}
-                          >
-                            {k.is_used ? "Canjeada" : "Disponible"}
-                          </span>
-                          {k.used_by_email && (
-                            <span className="text-[10px] text-amber-300 font-sans truncate max-w-[180px]">
-                              ({k.used_by_email})
-                            </span>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Key className="w-4 h-4 text-purple-400 shrink-0" />
+                        <span className="font-bold tracking-wider">{k.key_code}</span>
+                        <span
+                          className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                            k.is_used
+                              ? "bg-zinc-800 text-zinc-400"
+                              : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                          }`}
+                        >
+                          {k.is_used ? "Canjeada" : "Disponible"}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-1.5 self-end sm:self-auto">
                         {!k.is_used && (
                           <button
                             onClick={() => copyKey(k.key_code)}
-                            className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-sans flex items-center gap-1 text-zinc-300 transition"
-                            title="Copiar código"
+                            className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-sans flex items-center gap-1 text-zinc-300 transition"
                           >
                             {copiedKey === k.key_code ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-400" />
-                                <span className="text-emerald-400">Copiada</span>
-                              </>
+                              <Check className="w-3 h-3 text-emerald-400" />
                             ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>Copiar</span>
-                              </>
+                              <Copy className="w-3 h-3" />
                             )}
+                            <span>{copiedKey === k.key_code ? "Copiada" : "Copiar"}</span>
                           </button>
                         )}
-
-                        {k.is_used && k.used_by && k.used_by_email && (
-                          <button
-                            onClick={() => handleRevokeUserVip(k.used_by!, k.used_by_email!)}
-                            className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[11px] font-sans flex items-center gap-1 transition"
-                            title="Quitar acceso VIP"
-                          >
-                            <UserX className="w-3 h-3" />
-                            <span>Revocar VIP</span>
-                          </button>
-                        )}
-
                         <button
                           onClick={() => handleDeleteKey(k.key_code)}
                           className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-white/5 transition"
-                          title="Eliminar clave"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
