@@ -55,6 +55,7 @@ import { EvTrackerCloudModal } from "@/components/mechanics/ev-tracker-cloud-mod
 import { SubscriptionModal } from "@/components/subscription/subscription-modal";
 import { AdminDashboardModal } from "@/components/admin/admin-dashboard-modal";
 import { VipWelcomeModal } from "@/components/subscription/vip-welcome-modal";
+import { VipToastAlert } from "@/components/subscription/vip-toast-alert";
 import { supabase } from "@/lib/supabase";
 
 import type { PokemonData } from "@/types/pokemon";
@@ -311,6 +312,13 @@ export default function Home() {
   const [isWelcomeVipOpen, setIsWelcomeVipOpen] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonData | null>(null);
 
+  const [toastAlert, setToastAlert] = useState<{
+    open: boolean;
+    title: string;
+    desc: string;
+    type: "vip_granted" | "feature_locked";
+  }>({ open: false, title: "", desc: "", type: "vip_granted" });
+
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
@@ -392,7 +400,7 @@ export default function Home() {
       else setUserProfile(null);
     });
 
-    // 1. Canal Realtime para los switches de funciones
+    // 1. Canal Realtime para switches de funciones
     const flagsChannel = supabase
       .channel("public:feature_flags")
       .on(
@@ -409,7 +417,7 @@ export default function Home() {
       )
       .subscribe();
 
-    // 2. Canal Realtime para detectar VIP otorgado por correo en vivo
+    // 2. Canal Realtime para perfil del usuario
     const profilesChannel = supabase
       .channel("public:user_profiles")
       .on(
@@ -417,8 +425,17 @@ export default function Home() {
         { event: "UPDATE", schema: "public", table: "user_profiles" },
         (payload: any) => {
           if (currentUser && payload.new && payload.new.id === currentUser.id) {
+            const previousStatus = userProfile?.subscription_status;
             setUserProfile(payload.new);
-            if (payload.new.subscription_status === "vip" && userProfile?.subscription_status !== "vip") {
+
+            // Alerta si pasó a VIP en vivo
+            if (payload.new.subscription_status === "vip" && previousStatus !== "vip") {
+              setToastAlert({
+                open: true,
+                title: "¡Has sido ascendido a VIP!",
+                desc: "El administrador activó tu acceso de 30 días a todas las funciones.",
+                type: "vip_granted",
+              });
               setIsWelcomeVipOpen(true);
             }
           }
@@ -1135,6 +1152,14 @@ export default function Home() {
         isOpen={isWelcomeVipOpen}
         onClose={() => setIsWelcomeVipOpen(false)}
         trainerName={displayName}
+      />
+
+      <VipToastAlert
+        isOpen={toastAlert.open}
+        onClose={() => setToastAlert((prev) => ({ ...prev, open: false }))}
+        title={toastAlert.title}
+        description={toastAlert.desc}
+        type={toastAlert.type}
       />
 
       <AdminDashboardModal
