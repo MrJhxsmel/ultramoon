@@ -389,7 +389,7 @@ export default function Home() {
     let profilesChannel: any = null;
     let flagsChannel: any = null;
 
-    // Escucha permanente de switches de módulos en vivo
+    // Escucha permanente de switches de funciones en vivo
     flagsChannel = supabase
       .channel("flags_realtime_stream")
       .on(
@@ -427,7 +427,6 @@ export default function Home() {
                 table: "user_profiles",
               },
               (payload: any) => {
-                // Filtrar por ID del usuario activo directamente en la aplicación
                 if (payload.new && payload.new.id === user.id) {
                   setUserProfile((prev: any) => {
                     const prevStatus = prev?.subscription_status;
@@ -566,11 +565,11 @@ export default function Home() {
     return false;
   }, [userProfile?.subscription_status, isAdmin, simulateFreeUser]);
 
+  // Si el usuario es VIP o Admin, NUNCA se bloquea ningún módulo
   const isModuleLocked = (module: ToolModule) => {
+    if (isVipUser) return false;
     if (!module.flagKey) return false;
-    const isPremium = Boolean(featureFlags[module.flagKey]);
-    if (!isPremium) return false;
-    return !isVipUser;
+    return Boolean(featureFlags[module.flagKey]);
   };
 
   const handleModuleClick = (module: ToolModule) => {
