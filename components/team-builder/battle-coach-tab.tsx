@@ -7,16 +7,11 @@ import {
   Zap,
   ArrowRightLeft,
   Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
-  Droplets,
-  Sprout,
   Shield,
   Crosshair,
 } from "lucide-react";
 
-// Tabla oficial de tipos Gen 9
+// Tabla oficial de efectividades elementales Gen 9
 const TYPE_CHART: Record<string, Record<string, number>> = {
   Normal: { Rock: 0.5, Ghost: 0, Steel: 0.5 },
   Fire: { Fire: 0.5, Water: 0.5, Grass: 2, Ice: 2, Bug: 2, Rock: 0.5, Dragon: 0.5, Steel: 2 },
@@ -44,7 +39,7 @@ const ALL_TYPES = [
   "Rock", "Ghost", "Dragon", "Dark", "Steel", "Fairy"
 ];
 
-// Movimientos base de respaldo si el Pokémon no tiene ataques asignados
+// Movimientos competitivos por defecto según la especie
 const DEFAULT_MOVESET: Record<string, Array<{ name: string; type: string; category: "Physical" | "Special" | "Status"; power: number }>> = {
   Charizard: [
     { name: "Onda Ígnea", type: "Fire", category: "Special", power: 95 },
@@ -57,6 +52,30 @@ const DEFAULT_MOVESET: Record<string, Array<{ name: string; type: string; catego
     { name: "Garra Dragón", type: "Dragon", category: "Physical", power: 80 },
     { name: "Roca Afilada", type: "Rock", category: "Physical", power: 100 },
     { name: "Danza Espada", type: "Normal", category: "Status", power: 0 },
+  ],
+  "Rotom-Wash": [
+    { name: "Hidrobomba", type: "Water", category: "Special", power: 110 },
+    { name: "Rayo", type: "Electric", category: "Special", power: 90 },
+    { name: "Voltiocambio", type: "Electric", category: "Special", power: 70 },
+    { name: "Fuego Fatuo", type: "Fire", category: "Status", power: 0 },
+  ],
+  "Rotom-Heat": [
+    { name: "Sofoco", type: "Fire", category: "Special", power: 130 },
+    { name: "Rayo", type: "Electric", category: "Special", power: 90 },
+    { name: "Voltiocambio", type: "Electric", category: "Special", power: 70 },
+    { name: "Fuego Fatuo", type: "Fire", category: "Status", power: 0 },
+  ],
+  "Rotom-Mow": [
+    { name: "Lluevehojas", type: "Grass", category: "Special", power: 130 },
+    { name: "Rayo", type: "Electric", category: "Special", power: 90 },
+    { name: "Voltiocambio", type: "Electric", category: "Special", power: 70 },
+    { name: "Truco", type: "Psychic", category: "Status", power: 0 },
+  ],
+  Rotom: [
+    { name: "Rayo", type: "Electric", category: "Special", power: 90 },
+    { name: "Bola Sombra", type: "Ghost", category: "Special", power: 80 },
+    { name: "Voltiocambio", type: "Electric", category: "Special", power: 70 },
+    { name: "Fuego Fatuo", type: "Fire", category: "Status", power: 0 },
   ],
   Graveler: [
     { name: "Terremoto", type: "Ground", category: "Physical", power: 100 },
@@ -90,6 +109,11 @@ const DEFAULT_MOVESET: Record<string, Array<{ name: string; type: string; catego
   ],
 };
 
+function getPokemonSpriteUrl(name: string): string {
+  const clean = name.toLowerCase().replace(/[^a-z0-9-]/g, "");
+  return `https://play.pokemonshowdown.com/sprites/gen5/${clean}.png`;
+}
+
 function calculateMultiplier(attackType: string, defenderTypes: string[]): number {
   let mult = 1;
   const attackMap = TYPE_CHART[attackType] || {};
@@ -104,26 +128,22 @@ function calculateMultiplier(attackType: string, defenderTypes: string[]): numbe
 export function BattleCoachTab({ team }: { team: any[] }) {
   const [activePokeIndex, setActivePokeIndex] = useState(0);
 
-  // Pokémon rival a analizar
+  // Rival seleccionado para cálculo
   const [enemyName, setEnemyName] = useState("Marshtomp");
   const [enemyTypes, setEnemyTypes] = useState<string[]>(["Water", "Ground"]);
 
-  // Si el equipo aún no tiene Pokémon agregados, usamos los vistos en tu partida
+  // Equipo activo del usuario
   const effectiveTeam = useMemo(() => {
     if (team && team.length > 0) return team;
     return [
       { name: "Charizard", types: ["Fire", "Flying"], level: 50 },
-      { name: "Graveler", types: ["Rock", "Ground"], level: 50 },
-      { name: "Alakazam", types: ["Psychic"], level: 50 },
-      { name: "Salamence", types: ["Dragon", "Flying"], level: 50 },
-      { name: "Gigalith", types: ["Rock"], level: 50 },
-      { name: "Kilowattrel", types: ["Electric", "Flying"], level: 50 },
+      { name: "Garchomp", types: ["Dragon", "Ground"], level: 50 },
     ];
   }, [team]);
 
   const currentPokemon = effectiveTeam[activePokeIndex] || effectiveTeam[0];
 
-  // Ataques del Pokémon seleccionado
+  // Movimientos del Pokémon activo
   const moves = useMemo(() => {
     if (currentPokemon?.moves && currentPokemon.moves.length > 0) {
       return currentPokemon.moves.map((m: any) =>
@@ -134,7 +154,7 @@ export function BattleCoachTab({ team }: { team: any[] }) {
     }
     return (
       DEFAULT_MOVESET[currentPokemon?.name] || [
-        { name: "Golpe Principal", type: currentPokemon?.types?.[0] || "Normal", category: "Physical", power: 80 },
+        { name: "Ataque Primario", type: currentPokemon?.types?.[0] || "Normal", category: "Physical", power: 80 },
         { name: "Ataque Secundario", type: currentPokemon?.types?.[1] || currentPokemon?.types?.[0] || "Normal", category: "Special", power: 70 },
         { name: "Cobertura", type: "Normal", category: "Physical", power: 60 },
         { name: "Protección", type: "Normal", category: "Status", power: 0 },
@@ -142,7 +162,7 @@ export function BattleCoachTab({ team }: { team: any[] }) {
     );
   }, [currentPokemon]);
 
-  // Análisis de cada ataque
+  // Análisis de multiplicador para cada ataque
   const movesAnalysis = useMemo(() => {
     return moves.map((move: any) => {
       if (move.category === "Status") {
@@ -161,39 +181,26 @@ export function BattleCoachTab({ team }: { team: any[] }) {
     });
   }, [moves, enemyTypes, currentPokemon]);
 
-  // Ataque más óptimo
+  // Movimiento sugerido de mayor impacto
   const bestMove = useMemo(() => {
     const offensive = movesAnalysis.filter((m: any) => m.category !== "Status");
     if (!offensive.length) return null;
     return offensive.reduce((prev: any, curr: any) => (curr.score > prev.score ? curr : prev));
   }, [movesAnalysis]);
 
-  // Debilidades defensivas del rival (qué tipos le hacen 2x o 4x)
+  // Debilidades del rival (>= 2x)
   const enemyWeaknesses = useMemo(() => {
     return ALL_TYPES.map((t) => ({ type: t, mult: calculateMultiplier(t, enemyTypes) })).filter(
       (w) => w.mult >= 2
     );
   }, [enemyTypes]);
 
-  // Resistencias e Inmunidades del rival
+  // Resistencias o inmunidades del rival (< 1x)
   const enemyResistances = useMemo(() => {
     return ALL_TYPES.map((t) => ({ type: t, mult: calculateMultiplier(t, enemyTypes) })).filter(
       (r) => r.mult < 1
     );
   }, [enemyTypes]);
-
-  // Mejor cambio disponible en tu banca
-  const bestSwitch = useMemo(() => {
-    const candidates = effectiveTeam.map((poke: any, idx: number) => {
-      const pMoves = DEFAULT_MOVESET[poke.name] || [
-        { type: poke.types?.[0] || "Normal", power: 80 },
-        { type: poke.types?.[1] || poke.types?.[0] || "Normal", power: 80 },
-      ];
-      const maxMult = Math.max(...pMoves.map((m) => calculateMultiplier(m.type, enemyTypes)));
-      return { poke, idx, maxMult };
-    });
-    return candidates.reduce((prev, curr) => (curr.maxMult > prev.maxMult ? curr : prev));
-  }, [effectiveTeam, enemyTypes]);
 
   return (
     <div className="space-y-6 pt-2">
@@ -203,7 +210,7 @@ export function BattleCoachTab({ team }: { team: any[] }) {
         <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/10 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono uppercase text-purple-400 font-bold flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5" /> Tu Pokémon Activo
+              <Shield className="w-3.5 h-3.5" /> Tu Pokémon en Campo
             </span>
             <div className="flex gap-1">
               {currentPokemon.types?.map((t: string) => (
@@ -217,29 +224,47 @@ export function BattleCoachTab({ team }: { team: any[] }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center p-1 shrink-0 overflow-hidden">
+              <img
+                src={currentPokemon.sprite || getPokemonSpriteUrl(currentPokemon.name)}
+                alt={currentPokemon.name}
+                className="w-full h-full object-contain drop-shadow"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
             <div>
               <h3 className="text-xl font-black text-white">{currentPokemon.name}</h3>
               <p className="text-xs text-zinc-400 font-mono">Nivel {currentPokemon.level || 50}</p>
             </div>
           </div>
 
-          {/* Selector de cambio entre los miembros de tu equipo */}
+          {/* Selector de cambio entre miembros de tu equipo */}
           <div className="pt-2 border-t border-white/5 space-y-2">
             <span className="text-[11px] text-zinc-400 font-semibold flex items-center gap-1">
-              <ArrowRightLeft className="w-3.5 h-3.5" /> Cambiar Pokémon en campo:
+              <ArrowRightLeft className="w-3.5 h-3.5" /> Cambiar Pokémon activo:
             </span>
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
               {effectiveTeam.map((poke: any, idx: number) => (
                 <button
                   key={poke.name + idx}
                   onClick={() => setActivePokeIndex(idx)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-2 ${
                     activePokeIndex === idx
                       ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
                       : "bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/5"
                   }`}
                 >
+                  <img
+                    src={getPokemonSpriteUrl(poke.name)}
+                    alt={poke.name}
+                    className="w-5 h-5 object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
                   <span>{poke.name}</span>
                 </button>
               ))}
@@ -265,14 +290,26 @@ export function BattleCoachTab({ team }: { team: any[] }) {
             </div>
           </div>
 
-          <div>
-            <input
-              type="text"
-              value={enemyName}
-              onChange={(e) => setEnemyName(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-base font-bold text-white focus:outline-none focus:border-rose-500"
-              placeholder="Nombre del rival..."
-            />
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center p-1 shrink-0 overflow-hidden">
+              <img
+                src={getPokemonSpriteUrl(enemyName)}
+                alt={enemyName}
+                className="w-full h-full object-contain drop-shadow"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
+            <div className="flex-1">
+              <input
+                type="text"
+                value={enemyName}
+                onChange={(e) => setEnemyName(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-base font-bold text-white focus:outline-none focus:border-rose-500"
+                placeholder="Nombre del rival..."
+              />
+            </div>
           </div>
 
           {/* Ajuste de tipos elementales del rival */}
@@ -424,7 +461,7 @@ export function BattleCoachTab({ team }: { team: any[] }) {
                 </span>
               ))
             ) : (
-              <span className="text-xs text-zinc-500">Sin debilidades notables.</span>
+              <span className="text-xs text-zinc-500">Sin debilidades destacables.</span>
             )}
           </div>
         </div>

@@ -6,24 +6,17 @@ import {
   X,
   Plus,
   Trash2,
-  Share2,
-  Download,
   Search,
-  Sparkles,
   Shield,
   Swords,
   Users,
-  Terminal,
-  Save,
-  Layers,
-  ArrowRightLeft,
   Crosshair,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BattleCoachTab } from "./battle-coach-tab";
 
 interface PokemonSlot {
-  id?: string;
+  id?: number | string;
   name: string;
   types: string[];
   item?: string;
@@ -31,6 +24,43 @@ interface PokemonSlot {
   nature?: string;
   level?: number;
   moves?: any[];
+  sprite?: string;
+}
+
+// Catálogo expandido competitivo con todas las formas de Rotom incluidas
+const POKEMON_CATALOG: PokemonSlot[] = [
+  { name: "Rotom", types: ["Electric", "Ghost"], item: "Leftovers", ability: "Levitate", nature: "Timid", level: 50 },
+  { name: "Rotom-Wash", types: ["Electric", "Water"], item: "Choice Scarf", ability: "Levitate", nature: "Bold", level: 50 },
+  { name: "Rotom-Heat", types: ["Electric", "Fire"], item: "Heavy-Duty Boots", ability: "Levitate", nature: "Timid", level: 50 },
+  { name: "Rotom-Mow", types: ["Electric", "Grass"], item: "Choice Specs", ability: "Levitate", nature: "Timid", level: 50 },
+  { name: "Rotom-Frost", types: ["Electric", "Ice"], item: "Never-Melt Ice", ability: "Levitate", nature: "Timid", level: 50 },
+  { name: "Rotom-Fan", types: ["Electric", "Flying"], item: "Heavy-Duty Boots", ability: "Levitate", nature: "Timid", level: 50 },
+  { name: "Garchomp", types: ["Dragon", "Ground"], item: "Life Orb", ability: "Rough Skin", nature: "Jolly", level: 50 },
+  { name: "Charizard", types: ["Fire", "Flying"], item: "Choice Specs", ability: "Solar Power", nature: "Timid", level: 50 },
+  { name: "Graveler", types: ["Rock", "Ground"], item: "Eviolite", ability: "Sturdy", nature: "Adamant", level: 50 },
+  { name: "Alakazam", types: ["Psychic"], item: "Focus Sash", ability: "Magic Guard", nature: "Timid", level: 50 },
+  { name: "Salamence", types: ["Dragon", "Flying"], item: "Lum Berry", ability: "Intimidate", nature: "Naive", level: 50 },
+  { name: "Gigalith", types: ["Rock"], item: "Leftovers", ability: "Sand Stream", nature: "Brave", level: 50 },
+  { name: "Kilowattrel", types: ["Electric", "Flying"], item: "Booster Energy", ability: "Wind Power", nature: "Timid", level: 50 },
+  { name: "Lucario", types: ["Fighting", "Steel"], item: "Life Orb", ability: "Inner Focus", nature: "Jolly", level: 50 },
+  { name: "Gengar", types: ["Ghost", "Poison"], item: "Choice Scarf", ability: "Cursed Body", nature: "Timid", level: 50 },
+  { name: "Tyranitar", types: ["Rock", "Dark"], item: "Assault Vest", ability: "Sand Stream", nature: "Adamant", level: 50 },
+  { name: "Dragonite", types: ["Dragon", "Flying"], item: "Weakness Policy", ability: "Multiscale", nature: "Adamant", level: 50 },
+  { name: "Baxcalibur", types: ["Dragon", "Ice"], item: "Loaded Dice", ability: "Thermal Exchange", nature: "Jolly", level: 50 },
+  { name: "Kingambit", types: ["Dark", "Steel"], item: "Black Glasses", ability: "Supreme Overlord", nature: "Adamant", level: 50 },
+  { name: "Flutter Mane", types: ["Ghost", "Fairy"], item: "Booster Energy", ability: "Protosynthesis", nature: "Timid", level: 50 },
+  { name: "Iron Bundle", types: ["Ice", "Water"], item: "Booster Energy", ability: "Quark Drive", nature: "Timid", level: 50 },
+  { name: "Iron Hands", types: ["Fighting", "Electric"], item: "Assault Vest", ability: "Quark Drive", nature: "Adamant", level: 50 },
+  { name: "Tinkaton", types: ["Fairy", "Steel"], item: "Leftovers", ability: "Mold Breaker", nature: "Careful", level: 50 },
+  { name: "Annihilape", types: ["Fighting", "Ghost"], item: "Leftovers", ability: "Defiant", nature: "Careful", level: 50 },
+  { name: "Meowscarada", types: ["Grass", "Dark"], item: "Focus Sash", ability: "Protean", nature: "Jolly", level: 50 },
+  { name: "Skeledirge", types: ["Fire", "Ghost"], item: "Throat Spray", ability: "Unaware", nature: "Modest", level: 50 },
+  { name: "Quaquaval", types: ["Water", "Fighting"], item: "Life Orb", ability: "Moxie", nature: "Jolly", level: 50 },
+];
+
+function getPokemonSpriteUrl(name: string): string {
+  const clean = name.toLowerCase().replace(/[^a-z0-9-]/g, "");
+  return `https://play.pokemonshowdown.com/sprites/gen5/${clean}.png`;
 }
 
 export function TeamBuilderModal({
@@ -42,9 +72,8 @@ export function TeamBuilderModal({
 }) {
   const [activeTab, setActiveTab] = useState<"team" | "coach" | "matchups" | "balance">("team");
   const [teamName, setTeamName] = useState("Equipo Competitivo VGC");
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Equipo inicial (como el que se muestra en tus capturas)
   const [team, setTeam] = useState<PokemonSlot[]>([
     {
       name: "Garchomp",
@@ -64,27 +93,6 @@ export function TeamBuilderModal({
     },
   ]);
 
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const POKEMON_CATALOG: PokemonSlot[] = [
-    { name: "Garchomp", types: ["Dragon", "Ground"], item: "Life Orb", ability: "Rough Skin", nature: "Jolly", level: 50 },
-    { name: "Charizard", types: ["Fire", "Flying"], item: "Choice Specs", ability: "Solar Power", nature: "Timid", level: 50 },
-    { name: "Graveler", types: ["Rock", "Ground"], item: "Eviolite", ability: "Sturdy", nature: "Adamant", level: 50 },
-    { name: "Alakazam", types: ["Psychic"], item: "Focus Sash", ability: "Magic Guard", nature: "Timid", level: 50 },
-    { name: "Salamence", types: ["Dragon", "Flying"], item: "Lum Berry", ability: "Intimidate", nature: "Naive", level: 50 },
-    { name: "Gigalith", types: ["Rock"], item: "Leftovers", ability: "Sand Stream", nature: "Brave", level: 50 },
-    { name: "Kilowattrel", types: ["Electric", "Flying"], item: "Booster Energy", ability: "Wind Power", nature: "Timid", level: 50 },
-    { name: "Lucario", types: ["Fighting", "Steel"], item: "Life Orb", ability: "Inner Focus", nature: "Jolly", level: 50 },
-    { name: "Gengar", types: ["Ghost", "Poison"], item: "Choice Scarf", ability: "Cursed Body", nature: "Timid", level: 50 },
-    { name: "Tyranitar", types: ["Rock", "Dark"], item: "Assault Vest", ability: "Sand Stream", nature: "Adamant", level: 50 },
-  ];
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) setCurrentUser(data.user);
-    });
-  }, []);
-
   const addPokemonToTeam = (poke: PokemonSlot) => {
     if (team.length >= 6) return;
     setTeam((prev) => [...prev, poke]);
@@ -96,7 +104,7 @@ export function TeamBuilderModal({
   };
 
   const filteredCatalog = POKEMON_CATALOG.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    p.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
   if (!isOpen) return null;
@@ -110,7 +118,7 @@ export function TeamBuilderModal({
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           className="relative w-full max-w-5xl max-h-[92vh] flex flex-col rounded-3xl bg-[#0b0e14] border border-white/10 text-zinc-100 shadow-2xl overflow-hidden"
         >
-          {/* Cabecera */}
+          {/* Header */}
           <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between gap-4 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
@@ -142,7 +150,7 @@ export function TeamBuilderModal({
             </button>
           </div>
 
-          {/* Navegación por Pestañas */}
+          {/* Navegación */}
           <div className="flex items-center gap-2 px-4 sm:px-6 pt-3 border-b border-white/5 overflow-x-auto shrink-0 custom-scrollbar">
             <button
               onClick={() => setActiveTab("team")}
@@ -193,15 +201,13 @@ export function TeamBuilderModal({
             </button>
           </div>
 
-          {/* Contenido Principal */}
+          {/* Contenido */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-6">
-            {activeTab === "coach" && (
-              <BattleCoachTab team={team} />
-            )}
+            {activeTab === "coach" && <BattleCoachTab team={team} />}
 
             {activeTab === "team" && (
               <div className="space-y-6">
-                {/* Cuadrícula de 6 Slots */}
+                {/* 6 Slots con imagen real del sprite */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {Array.from({ length: 6 }).map((_, idx) => {
                     const poke = team[idx];
@@ -213,8 +219,15 @@ export function TeamBuilderModal({
                           className="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/10 flex items-start justify-between gap-4 group hover:border-purple-500/40 transition"
                         >
                           <div className="flex items-start gap-3">
-                            <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-purple-400 shrink-0">
-                              {poke.name.substring(0, 2).toUpperCase()}
+                            <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                              <img
+                                src={poke.sprite || getPokemonSpriteUrl(poke.name)}
+                                alt={poke.name}
+                                className="w-full h-full object-contain drop-shadow"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
@@ -261,7 +274,7 @@ export function TeamBuilderModal({
                   })}
                 </div>
 
-                {/* Buscador de Especies para Añadir */}
+                {/* Buscador de Especies (incluye a Rotom) */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/40 border border-white/10 space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-mono uppercase font-bold text-purple-400">
@@ -278,23 +291,35 @@ export function TeamBuilderModal({
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Buscar especie (ej. Lucario, Gengar, Charizard)..."
+                      placeholder="Buscar especie (ej. Rotom, Charizard, Gengar)..."
                       className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 max-h-40 overflow-y-auto custom-scrollbar">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 max-h-48 overflow-y-auto custom-scrollbar">
                     {filteredCatalog.map((poke) => (
                       <button
                         key={poke.name}
                         onClick={() => addPokemonToTeam(poke)}
                         disabled={team.length >= 6}
-                        className="p-2.5 rounded-xl bg-white/5 hover:bg-purple-600/20 border border-white/5 hover:border-purple-500/40 text-left transition flex items-center justify-between group disabled:opacity-30 disabled:pointer-events-none"
+                        className="p-2 rounded-xl bg-white/5 hover:bg-purple-600/20 border border-white/5 hover:border-purple-500/40 text-left transition flex items-center gap-2 group disabled:opacity-30 disabled:pointer-events-none"
                       >
-                        <span className="text-xs font-bold text-zinc-200 group-hover:text-purple-300">
-                          {poke.name}
-                        </span>
-                        <Plus className="w-3.5 h-3.5 text-zinc-500 group-hover:text-purple-400" />
+                        <img
+                          src={getPokemonSpriteUrl(poke.name)}
+                          alt={poke.name}
+                          className="w-8 h-8 object-contain shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                        <div className="overflow-hidden">
+                          <span className="text-xs font-bold text-zinc-200 group-hover:text-purple-300 block truncate">
+                            {poke.name}
+                          </span>
+                          <span className="text-[9px] text-zinc-500 block truncate font-mono">
+                            {poke.types.join("/")}
+                          </span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -306,7 +331,7 @@ export function TeamBuilderModal({
               <div className="p-8 text-center text-zinc-500 space-y-2">
                 <Crosshair className="w-8 h-8 mx-auto text-zinc-600" />
                 <p className="text-xs">
-                  Selecciona la pestaña <strong>Asistente de Batalla</strong> para calcular turnos contra tu oponente en Minecraft.
+                  Abre la pestaña <strong>Asistente de Batalla</strong> para ingresar el rival y ver qué ataque usar turno a turno.
                 </p>
               </div>
             )}
@@ -315,7 +340,7 @@ export function TeamBuilderModal({
               <div className="p-8 text-center text-zinc-500 space-y-2">
                 <Shield className="w-8 h-8 mx-auto text-zinc-600" />
                 <p className="text-xs">
-                  Tu equipo cubre los núcleos elementales básicos. Consulta la efectividad directa en el Asistente de Batalla.
+                  El balance de coberturas se calcula en base a tus tipos en la pestaña Asistente.
                 </p>
               </div>
             )}
