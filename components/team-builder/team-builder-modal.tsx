@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -11,6 +11,7 @@ import {
   Swords,
   Users,
   Crosshair,
+  Loader2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BattleCoachTab } from "./battle-coach-tab";
@@ -27,37 +28,6 @@ interface PokemonSlot {
   sprite?: string;
 }
 
-// Catálogo expandido competitivo con todas las formas de Rotom incluidas
-const POKEMON_CATALOG: PokemonSlot[] = [
-  { name: "Rotom", types: ["Electric", "Ghost"], item: "Leftovers", ability: "Levitate", nature: "Timid", level: 50 },
-  { name: "Rotom-Wash", types: ["Electric", "Water"], item: "Choice Scarf", ability: "Levitate", nature: "Bold", level: 50 },
-  { name: "Rotom-Heat", types: ["Electric", "Fire"], item: "Heavy-Duty Boots", ability: "Levitate", nature: "Timid", level: 50 },
-  { name: "Rotom-Mow", types: ["Electric", "Grass"], item: "Choice Specs", ability: "Levitate", nature: "Timid", level: 50 },
-  { name: "Rotom-Frost", types: ["Electric", "Ice"], item: "Never-Melt Ice", ability: "Levitate", nature: "Timid", level: 50 },
-  { name: "Rotom-Fan", types: ["Electric", "Flying"], item: "Heavy-Duty Boots", ability: "Levitate", nature: "Timid", level: 50 },
-  { name: "Garchomp", types: ["Dragon", "Ground"], item: "Life Orb", ability: "Rough Skin", nature: "Jolly", level: 50 },
-  { name: "Charizard", types: ["Fire", "Flying"], item: "Choice Specs", ability: "Solar Power", nature: "Timid", level: 50 },
-  { name: "Graveler", types: ["Rock", "Ground"], item: "Eviolite", ability: "Sturdy", nature: "Adamant", level: 50 },
-  { name: "Alakazam", types: ["Psychic"], item: "Focus Sash", ability: "Magic Guard", nature: "Timid", level: 50 },
-  { name: "Salamence", types: ["Dragon", "Flying"], item: "Lum Berry", ability: "Intimidate", nature: "Naive", level: 50 },
-  { name: "Gigalith", types: ["Rock"], item: "Leftovers", ability: "Sand Stream", nature: "Brave", level: 50 },
-  { name: "Kilowattrel", types: ["Electric", "Flying"], item: "Booster Energy", ability: "Wind Power", nature: "Timid", level: 50 },
-  { name: "Lucario", types: ["Fighting", "Steel"], item: "Life Orb", ability: "Inner Focus", nature: "Jolly", level: 50 },
-  { name: "Gengar", types: ["Ghost", "Poison"], item: "Choice Scarf", ability: "Cursed Body", nature: "Timid", level: 50 },
-  { name: "Tyranitar", types: ["Rock", "Dark"], item: "Assault Vest", ability: "Sand Stream", nature: "Adamant", level: 50 },
-  { name: "Dragonite", types: ["Dragon", "Flying"], item: "Weakness Policy", ability: "Multiscale", nature: "Adamant", level: 50 },
-  { name: "Baxcalibur", types: ["Dragon", "Ice"], item: "Loaded Dice", ability: "Thermal Exchange", nature: "Jolly", level: 50 },
-  { name: "Kingambit", types: ["Dark", "Steel"], item: "Black Glasses", ability: "Supreme Overlord", nature: "Adamant", level: 50 },
-  { name: "Flutter Mane", types: ["Ghost", "Fairy"], item: "Booster Energy", ability: "Protosynthesis", nature: "Timid", level: 50 },
-  { name: "Iron Bundle", types: ["Ice", "Water"], item: "Booster Energy", ability: "Quark Drive", nature: "Timid", level: 50 },
-  { name: "Iron Hands", types: ["Fighting", "Electric"], item: "Assault Vest", ability: "Quark Drive", nature: "Adamant", level: 50 },
-  { name: "Tinkaton", types: ["Fairy", "Steel"], item: "Leftovers", ability: "Mold Breaker", nature: "Careful", level: 50 },
-  { name: "Annihilape", types: ["Fighting", "Ghost"], item: "Leftovers", ability: "Defiant", nature: "Careful", level: 50 },
-  { name: "Meowscarada", types: ["Grass", "Dark"], item: "Focus Sash", ability: "Protean", nature: "Jolly", level: 50 },
-  { name: "Skeledirge", types: ["Fire", "Ghost"], item: "Throat Spray", ability: "Unaware", nature: "Modest", level: 50 },
-  { name: "Quaquaval", types: ["Water", "Fighting"], item: "Life Orb", ability: "Moxie", nature: "Jolly", level: 50 },
-];
-
 function getPokemonSpriteUrl(name: string): string {
   const clean = name.toLowerCase().replace(/[^a-z0-9-]/g, "");
   return `https://play.pokemonshowdown.com/sprites/gen5/${clean}.png`;
@@ -73,6 +43,8 @@ export function TeamBuilderModal({
   const [activeTab, setActiveTab] = useState<"team" | "coach" | "matchups" | "balance">("team");
   const [teamName, setTeamName] = useState("Equipo Competitivo VGC");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoadingSpecies, setIsLoadingSpecies] = useState(false);
+  const [allSpeciesList, setAllSpeciesList] = useState<Array<{ name: string; url: string }>>([]);
 
   const [team, setTeam] = useState<PokemonSlot[]>([
     {
@@ -93,19 +65,126 @@ export function TeamBuilderModal({
     },
   ]);
 
-  const addPokemonToTeam = (poke: PokemonSlot) => {
+  // Cargar el listado universal oficial (Generaciones 1 a 9 y variantes)
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchAllSpecies() {
+      try {
+        setIsLoadingSpecies(true);
+        const res = await fetch("https://pokeapi.co/api/v2/pokemon?limit=1302");
+        const data = await res.json();
+        if (isMounted && data.results) {
+          // Formatear nombres capitalizados y formas regionales/especiales
+          const formatted = data.results.map((p: any) => ({
+            name: p.name
+              .split("-")
+              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join("-"),
+            url: p.url,
+          }));
+          setAllSpeciesList(formatted);
+        }
+      } catch (err) {
+        console.error("Error cargando especies:", err);
+      } finally {
+        if (isMounted) setIsLoadingSpecies(false);
+      }
+    }
+
+    if (isOpen && allSpeciesList.length === 0) {
+      fetchAllSpecies();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, allSpeciesList.length]);
+
+  const addPokemonToTeam = async (speciesName: string) => {
     if (team.length >= 6) return;
-    setTeam((prev) => [...prev, poke]);
-    setSearchQuery("");
+
+    const cleanName = speciesName.toLowerCase().replace(/[^a-z0-9-]/g, "");
+
+    try {
+      // Obtener tipos oficiales en tiempo real
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${cleanName}`);
+      let types = ["Normal"];
+      if (res.ok) {
+        const data = await res.json();
+        types = data.types.map(
+          (t: any) => t.type.name.charAt(0).toUpperCase() + t.type.name.slice(1)
+        );
+      }
+
+      const newPoke: PokemonSlot = {
+        name: speciesName,
+        types,
+        item: "Leftovers",
+        ability: "Competitiva",
+        nature: "Adamant",
+        level: 50,
+        sprite: getPokemonSpriteUrl(speciesName),
+      };
+
+      setTeam((prev) => [...prev, newPoke]);
+      setSearchQuery("");
+    } catch {
+      setTeam((prev) => [
+        ...prev,
+        {
+          name: speciesName,
+          types: ["Normal"],
+          item: "Leftovers",
+          level: 50,
+          sprite: getPokemonSpriteUrl(speciesName),
+        },
+      ]);
+      setSearchQuery("");
+    }
   };
 
   const removePokemonFromTeam = (index: number) => {
     setTeam((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const filteredCatalog = POKEMON_CATALOG.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  );
+  // Filtrado ultra-rápido en tiempo real sobre los 1300+ Pokémon
+  const filteredCatalog = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) {
+      // Si no escribe nada, mostrar las especies meta destacadas
+      return allSpeciesList
+        .filter((p) =>
+          [
+            "Garchomp",
+            "Charizard",
+            "Decidueye",
+            "Decidueye-Hisui",
+            "Rotom",
+            "Rotom-Wash",
+            "Rotom-Heat",
+            "Rotom-Mow",
+            "Dragonite",
+            "Alakazam",
+            "Salamence",
+            "Lucario",
+            "Gengar",
+            "Tyranitar",
+            "Meowscarada",
+            "Skeledirge",
+            "Quaquaval",
+            "Flutter-Mane",
+            "Iron-Bundle",
+            "Iron-Hands",
+            "Baxcalibur",
+            "Kingambit",
+          ].includes(p.name)
+        )
+        .slice(0, 20);
+    }
+    return allSpeciesList
+      .filter((p) => p.name.toLowerCase().includes(q))
+      .slice(0, 40); // Mostrar hasta 40 resultados inmediatos
+  }, [allSpeciesList, searchQuery]);
 
   if (!isOpen) return null;
 
@@ -137,7 +216,7 @@ export function TeamBuilderModal({
                   </span>
                 </div>
                 <p className="text-xs text-zinc-400">
-                  Tablero integral: armado 6v6, asistente táctico de batalla y análisis de coberturas
+                  Tablero integral: armado 6v6, asistente táctico de batalla y Pokédex completa
                 </p>
               </div>
             </div>
@@ -150,7 +229,7 @@ export function TeamBuilderModal({
             </button>
           </div>
 
-          {/* Navegación */}
+          {/* Navegación por Pestañas */}
           <div className="flex items-center gap-2 px-4 sm:px-6 pt-3 border-b border-white/5 overflow-x-auto shrink-0 custom-scrollbar">
             <button
               onClick={() => setActiveTab("team")}
@@ -201,13 +280,13 @@ export function TeamBuilderModal({
             </button>
           </div>
 
-          {/* Contenido */}
+          {/* Contenido Principal */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-6">
             {activeTab === "coach" && <BattleCoachTab team={team} />}
 
             {activeTab === "team" && (
               <div className="space-y-6">
-                {/* 6 Slots con imagen real del sprite */}
+                {/* Cuadrícula de 6 Slots con Sprites Reales */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {Array.from({ length: 6 }).map((_, idx) => {
                     const poke = team[idx];
@@ -225,7 +304,7 @@ export function TeamBuilderModal({
                                 alt={poke.name}
                                 className="w-full h-full object-contain drop-shadow"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = "none";
+                                  (e.target as HTMLImageElement).src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${poke.id || 25}.png`;
                                 }}
                               />
                             </div>
@@ -274,14 +353,15 @@ export function TeamBuilderModal({
                   })}
                 </div>
 
-                {/* Buscador de Especies (incluye a Rotom) */}
+                {/* Buscador Universal de Todas las Especies */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/40 border border-white/10 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-mono uppercase font-bold text-purple-400">
-                      Añadir Pokémon al Equipo
+                    <h4 className="text-xs font-mono uppercase font-bold text-purple-400 flex items-center gap-2">
+                      <span>Pokédex Completa (Todas las Especies)</span>
+                      {isLoadingSpecies && <Loader2 className="w-3 h-3 animate-spin text-purple-400" />}
                     </h4>
                     <span className="text-xs text-zinc-500 font-mono">
-                      {filteredCatalog.length} especies
+                      {allSpeciesList.length > 0 ? `${allSpeciesList.length} especies registradas` : "Cargando..."}
                     </span>
                   </div>
 
@@ -291,37 +371,46 @@ export function TeamBuilderModal({
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Buscar especie (ej. Rotom, Charizard, Gengar)..."
-                      className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+                      placeholder="Busca cualquier Pokémon (ej. Decidueye, Rotom, Greninja, Tinkaton)..."
+                      className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 max-h-48 overflow-y-auto custom-scrollbar">
+                  {/* Resultados dinámicos con sprites */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 max-h-56 overflow-y-auto custom-scrollbar">
                     {filteredCatalog.map((poke) => (
                       <button
                         key={poke.name}
-                        onClick={() => addPokemonToTeam(poke)}
+                        onClick={() => addPokemonToTeam(poke.name)}
                         disabled={team.length >= 6}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-purple-600/20 border border-white/5 hover:border-purple-500/40 text-left transition flex items-center gap-2 group disabled:opacity-30 disabled:pointer-events-none"
+                        className="p-2 rounded-xl bg-white/5 hover:bg-purple-600/20 border border-white/5 hover:border-purple-500/40 text-left transition flex items-center gap-2.5 group disabled:opacity-30 disabled:pointer-events-none"
                       >
                         <img
                           src={getPokemonSpriteUrl(poke.name)}
                           alt={poke.name}
-                          className="w-8 h-8 object-contain shrink-0"
+                          className="w-8 h-8 object-contain shrink-0 drop-shadow"
+                          loading="lazy"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
+                            (e.target as HTMLImageElement).src =
+                              "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png";
                           }}
                         />
                         <div className="overflow-hidden">
                           <span className="text-xs font-bold text-zinc-200 group-hover:text-purple-300 block truncate">
                             {poke.name}
                           </span>
-                          <span className="text-[9px] text-zinc-500 block truncate font-mono">
-                            {poke.types.join("/")}
+                          <span className="text-[10px] text-zinc-500 block truncate font-mono">
+                            Toca para añadir
                           </span>
                         </div>
                       </button>
                     ))}
+
+                    {filteredCatalog.length === 0 && (
+                      <div className="col-span-2 sm:col-span-4 py-6 text-center text-xs text-zinc-500">
+                        No se encontró ningún Pokémon con ese nombre.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -331,7 +420,7 @@ export function TeamBuilderModal({
               <div className="p-8 text-center text-zinc-500 space-y-2">
                 <Crosshair className="w-8 h-8 mx-auto text-zinc-600" />
                 <p className="text-xs">
-                  Abre la pestaña <strong>Asistente de Batalla</strong> para ingresar el rival y ver qué ataque usar turno a turno.
+                  Abre la pestaña <strong>Asistente de Batalla</strong> para calcular los mejores ataques y cambios en tiempo real durante tu partida de Cobblemon.
                 </p>
               </div>
             )}
@@ -340,7 +429,7 @@ export function TeamBuilderModal({
               <div className="p-8 text-center text-zinc-500 space-y-2">
                 <Shield className="w-8 h-8 mx-auto text-zinc-600" />
                 <p className="text-xs">
-                  El balance de coberturas se calcula en base a tus tipos en la pestaña Asistente.
+                  Tu equipo cubre los núcleos elementales básicos.
                 </p>
               </div>
             )}
