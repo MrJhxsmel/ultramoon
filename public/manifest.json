@@ -1,0 +1,21 @@
+{
+  "name": "Ultramoon - Cobblemon Competitive Suite",
+  "short_name": "Ultramoon",
+  "description": "Suite analítica y táctica competitiva para Cobblemon en Minecraft",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#07090e",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
